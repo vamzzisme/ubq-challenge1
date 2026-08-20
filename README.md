@@ -23,7 +23,21 @@ reports/        Report sources and generated figures
 
 ## Data
 
-Place the raw `.dat` recordings and self-label CSV under `data/raw/`. The raw dataset is intentionally excluded from version control. Once the files are available, the preprocessing scripts will document the expected naming and timestamp conventions.
+Place each user's raw `.dat` recordings under `data/<USER_ID>/` and its self-label file at `data/<USER_ID>.features_labels.csv`. The raw dataset is intentionally excluded from version control.
+
+### Convert and resample a modality
+
+The supplied files currently live directly under `data/`. Convert the raw
+accelerometer captures to readable CSV and create their 25 Hz versions with:
+
+```bash
+python3 src/prepare_sensor_data.py --input-dir data --output-dir data/processed --modality raw_acc
+```
+
+This writes an 800-row native CSV and a 500-row resampled CSV for every
+recording, plus `data/processed/raw_acc_manifest.csv`. When gyroscope files
+arrive, run the same command with the gyro filename token, for example
+`--modality proc_gyro` if its filenames end in `.m_proc_gyro.dat`.
 
 ## Academic integrity
 
