@@ -39,6 +39,40 @@ recording, plus `data/processed/raw_acc_manifest.csv`. When gyroscope files
 arrive, run the same command with the gyro filename token, for example
 `--modality proc_gyro` if its filenames end in `.m_proc_gyro.dat`.
 
+### Build the labelled training index
+
+After resampling, create the activity-to-recording index with:
+
+```bash
+python3 src/build_labeled_index.py \
+  --data-dir data \
+  --resampled-dir data/processed/raw_acc_25hz \
+  --output data/processed/raw_acc_training_index.csv
+```
+
+It retains only recordings with one of the six unambiguous labels available in
+the supplied files: lying down, sitting, standing, walking, running, and
+bicycling. It prints the class balance and never silently chooses a class for
+an ambiguous row.
+
+### Train the accelerometer baseline
+
+The first baseline extracts 43 understandable time- and frequency-domain
+features per recording, then fits a class-weighted Random Forest. It keeps
+participants separate across splits. Install its small dependency set and run:
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 src/train_baseline.py \
+  --validation-user 2C32C23E-E30C-498A-8DD2-0EFB9150A02E \
+  --test-user 0A986513-7828-4D53-AA1F-E02D6DF9561B
+```
+
+The held-out users are intentional: all bicycling examples except one belong
+to another participant, so this split retains enough rare examples for model
+training. Metrics, the confusion matrix, feature importances, and the saved
+model are written beneath `artifacts/baseline/`.
+
 ## Academic integrity
 
 All external datasets, models, libraries, and AI assistance used during development will be cited and disclosed in the final report, as required by the challenge brief.

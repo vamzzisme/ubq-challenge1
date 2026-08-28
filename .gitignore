@@ -20,3 +20,6 @@ venv/
 *.pth
 *.onnx
 *.tflite
+
+# Reproducible training outputs
+artifacts/
