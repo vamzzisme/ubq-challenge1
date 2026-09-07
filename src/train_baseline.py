@@ -29,7 +29,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=Path("artifacts/baseline"))
     parser.add_argument("--validation-user", required=True, help="User ID held out for validation.")
     parser.add_argument("--test-user", required=True, help="User ID held out for final testing.")
-    parser.add_argument("--trees", type=int, default=300)
+    parser.add_argument("--trees", type=int, default=300, help="Number of trees (default: 300).")
+    parser.add_argument("--max-depth", type=int, help="Maximum tree depth; omit for unrestricted depth.")
+    parser.add_argument("--min-samples-leaf", type=int, default=2, help="Minimum recordings in a leaf (default: 2).")
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -85,7 +87,8 @@ def main() -> int:
 
     model = RandomForestClassifier(
         n_estimators=args.trees,
-        min_samples_leaf=2,
+        max_depth=args.max_depth,
+        min_samples_leaf=args.min_samples_leaf,
         max_features="sqrt",
         class_weight="balanced_subsample",
         n_jobs=-1,
@@ -97,7 +100,19 @@ def main() -> int:
     test = evaluate(model, test_x, test_y, class_order)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    joblib.dump({"model": model, "feature_names": feature_names(), "sample_rate_hz": 25.0}, args.output_dir / "random_forest.joblib")
+    model_config = {
+        "model_type": "RandomForestClassifier",
+        "trees": args.trees,
+        "max_depth": args.max_depth,
+        "min_samples_leaf": args.min_samples_leaf,
+        "max_features": "sqrt",
+        "class_weight": "balanced_subsample",
+        "seed": args.seed,
+    }
+    joblib.dump(
+        {"model": model, "feature_names": feature_names(), "sample_rate_hz": 25.0, "training_config": model_config},
+        args.output_dir / "random_forest.joblib",
+    )
     importances = sorted(zip(feature_names(), model.feature_importances_), key=lambda item: item[1], reverse=True)
     with (args.output_dir / "feature_importance.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
@@ -108,6 +123,7 @@ def main() -> int:
         "split": {"train_users": sorted({r['user_id'] for r in train_rows}), "validation_user": args.validation_user, "test_user": args.test_user},
         "recordings": {"train": len(train_rows), "validation": len(validation_rows), "test": len(test_rows)},
         "train_class_counts": dict(Counter(train_y)),
+        "model_config": model_config,
         "validation": {key: value for key, value in validation.items() if key != "predictions"},
         "test": {key: value for key, value in test.items() if key != "predictions"},
     }

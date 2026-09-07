@@ -73,6 +73,31 @@ to another participant, so this split retains enough rare examples for model
 training. Metrics, the confusion matrix, feature importances, and the saved
 model are written beneath `artifacts/baseline/`.
 
+### Compare model size and inference cost
+
+Train smaller Random Forest variants into distinct output directories. For
+example, a medium operating point is:
+
+```bash
+.venv/bin/python src/train_baseline.py \
+  --validation-user 2C32C23E-E30C-498A-8DD2-0EFB9150A02E \
+  --test-user 0A986513-7828-4D53-AA1F-E02D6DF9561B \
+  --trees 100 --max-depth 15 --min-samples-leaf 3 \
+  --output-dir artifacts/rf_medium
+```
+
+Benchmark any trained variant on the same input recordings:
+
+```bash
+.venv/bin/python src/benchmark_inference.py \
+  --model artifacts/rf_medium/random_forest.joblib \
+  --input-dir data/processed/raw_acc_25hz/0A986513-7828-4D53-AA1F-E02D6DF9561B \
+  --output artifacts/benchmarks/rf_medium.json
+```
+
+Use one benchmark JSON and one held-out QA-accuracy result for each operating
+point in the later accuracy-versus-overhead plot.
+
 ### Create evidence records and a timeline
 
 Predictions are stored as JSON rather than only printed, so later QA answers
