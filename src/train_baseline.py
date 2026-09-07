@@ -12,9 +12,11 @@ import csv
 import json
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 import joblib
 import numpy as np
+import numpy.typing as npt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 
@@ -41,11 +43,11 @@ def read_index(path: Path) -> list[dict[str, str]]:
     return rows
 
 
-def make_features(rows: list[dict[str, str]]) -> np.ndarray:
+def make_features(rows: list[dict[str, str]]) -> npt.NDArray[Any]:
     return np.vstack([extract_features(load_axes(row["sensor_csv_path"])) for row in rows])
 
 
-def write_confusion_matrix(path: Path, matrix: np.ndarray, labels: list[str]) -> None:
+def write_confusion_matrix(path: Path, matrix: npt.NDArray[Any], labels: list[str]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(["true_activity", *labels])
@@ -53,12 +55,12 @@ def write_confusion_matrix(path: Path, matrix: np.ndarray, labels: list[str]) ->
             writer.writerow([label, *values])
 
 
-def evaluate(model: RandomForestClassifier, features: np.ndarray, labels: np.ndarray, class_order: list[str]) -> dict[str, object]:
+def evaluate(model: RandomForestClassifier, features: npt.NDArray[Any], labels: npt.NDArray[Any], class_order: list[str]) -> dict[str, object]:
     predictions = model.predict(features)
     return {
         "accuracy": accuracy_score(labels, predictions),
-        "macro_f1": f1_score(labels, predictions, labels=class_order, average="macro", zero_division=0),
-        "report": classification_report(labels, predictions, labels=class_order, output_dict=True, zero_division=0),
+        "macro_f1": f1_score(labels, predictions, labels=class_order, average="macro", zero_division=0),  # type: ignore
+        "report": classification_report(labels, predictions, labels=class_order, output_dict=True, zero_division=0),  # type: ignore
         "predictions": predictions,
     }
 
@@ -101,7 +103,7 @@ def main() -> int:
         writer = csv.writer(handle)
         writer.writerow(["feature", "importance"])
         writer.writerows(importances)
-    write_confusion_matrix(args.output_dir / "test_confusion_matrix.csv", confusion_matrix(test_y, test["predictions"], labels=class_order), class_order)
+    write_confusion_matrix(args.output_dir / "test_confusion_matrix.csv", confusion_matrix(test_y, test["predictions"], labels=class_order), class_order)  # type: ignore[arg-type]
     summary = {
         "split": {"train_users": sorted({r['user_id'] for r in train_rows}), "validation_user": args.validation_user, "test_user": args.test_user},
         "recordings": {"train": len(train_rows), "validation": len(validation_rows), "test": len(test_rows)},
