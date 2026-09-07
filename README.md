@@ -73,6 +73,54 @@ to another participant, so this split retains enough rare examples for model
 training. Metrics, the confusion matrix, feature importances, and the saved
 model are written beneath `artifacts/baseline/`.
 
+### Create evidence records and a timeline
+
+Predictions are stored as JSON rather than only printed, so later QA answers
+can cite their exact source windows:
+
+```bash
+.venv/bin/python src/predict.py \
+  data/processed/raw_acc_25hz/<USER_ID>/<TIMESTAMP>.m_raw_acc.csv \
+  --output artifacts/predictions/<USER_ID>/<TIMESTAMP>.prediction.json
+```
+
+For a whole user, load the model once and batch-generate these records:
+
+```bash
+.venv/bin/python src/predict_directory.py \
+  --input-dir data/processed/raw_acc_25hz/<USER_ID> \
+  --output-dir artifacts/predictions/<USER_ID>
+```
+
+After producing prediction JSON files for a recording set, aggregate them:
+
+```bash
+.venv/bin/python src/build_timeline.py \
+  --predictions-dir artifacts/predictions/<USER_ID> \
+  --output artifacts/timelines/<USER_ID>.json
+```
+
+The timeline keeps every observed 20-second window. It may group nearby equal
+predictions for navigation, but it separately records unobserved gaps; QA must
+sum `observed_duration_s`, never the grouped span, when reporting evidence.
+
+### Ask core activity questions
+
+The first QA layer is deterministic and uses the timeline as its only source
+of facts. It supports verification, duration, count, comparison, onset, and
+identification at an observed time:
+
+```bash
+.venv/bin/python src/qa.py \
+  --timeline artifacts/timelines/<USER_ID>.json \
+  --question "How long was the user walking?"
+```
+
+It always prints the required answer fields and reports durations as directly
+observed sensor seconds. An SLM can be added later to translate flexible
+language into these same bounded operations; it will not be allowed to invent
+activity labels or timestamps.
+
 ## Academic integrity
 
 All external datasets, models, libraries, and AI assistance used during development will be cited and disclosed in the final report, as required by the challenge brief.
