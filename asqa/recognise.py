@@ -39,7 +39,7 @@ from scipy.optimize import minimize_scalar
 from sklearn.mixture import GaussianMixture
 from xgboost import XGBClassifier
 
-from asqa import config, features as feat
+from asqa import config, context, features as feat
 from asqa.preprocess import cached_users, load_cached
 from asqa.splits import load_folds
 
@@ -66,11 +66,39 @@ def build_features(user_id: str, overwrite: bool = False) -> tuple[np.ndarray, n
     return X, labels, cache.epoch_ts
 
 
-def load_users(user_ids: list[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Concatenate features for several users, tracking who each row came from."""
+def build_context_features(user_id: str, overwrite: bool = False) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Context-augmented features for one user, cached to disk.
+
+    Augmentation is O(windows x radius) per channel and every fold re-reads the
+    same users, so it is computed once per user and reused.
+    """
+    path = config.CACHE_DIR / "context" / f"{user_id}.npz"
+    if path.exists() and not overwrite:
+        with np.load(path, allow_pickle=False) as data:
+            return data["X"], data["labels"], data["epoch_ts"]
+
+    X, labels, epoch_ts = build_features(user_id)
+    augmented = context.augment(X, epoch_ts)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(path, X=augmented, labels=labels, epoch_ts=epoch_ts)
+    return augmented, labels, epoch_ts
+
+
+def load_users(
+    user_ids: list[str], with_context: bool = False
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Concatenate features for several users, tracking who each row came from.
+
+    Context is applied *per user, before* concatenation.  Augmenting the stacked
+    matrix instead would let one person's windows supply another person's
+    context -- a leak that would inflate every number reported here.
+    """
     Xs, ys, ts, owners = [], [], [], []
     for user_id in user_ids:
-        X, labels, epoch_ts = build_features(user_id)
+        if with_context:
+            X, labels, epoch_ts = build_context_features(user_id)
+        else:
+            X, labels, epoch_ts = build_features(user_id)
         Xs.append(X)
         ys.append(labels)
         ts.append(epoch_ts)
@@ -303,28 +331,70 @@ def evaluate(model: Recogniser, X: np.ndarray, y_coarse: np.ndarray) -> dict:
 
 
 def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) -> dict:
-    split = folds["splits"][str(fold_index)]
-    X_train, y_train, _, _ = load_users(split["train"])
-    X_val, y_val, _, _ = load_users(split["validation"])
-    X_test, y_test, _, _ = load_users(split["test"])
+    """Train the context-free and context-aware recognisers for one fold.
 
-    print(f"  fold {fold_index}: train {len(X_train)}, val {len(X_val)}, test {len(X_test)} windows")
-    model = train(X_train, y_train, X_val, y_val, seed=seed)
-    metrics = evaluate(model, X_test, y_test)
-    metrics["fold"] = fold_index
-    metrics["split"] = split
-    metrics["standing_threshold"] = model.standing_split.threshold
-    metrics["temperature"] = model.temperature
-    metrics["n_train"] = len(X_train)
-    metrics["n_test"] = len(X_test)
+    Both are kept.  Temporal context is worth roughly nine accuracy points on
+    full recordings, but a context-aware model handed a *single* window has no
+    neighbours to read and scores worse than the context-free one (measured:
+    0.431 against 0.444).  Task 1 asks about exactly that single-window case
+    while Tasks 2-4 supply whole recordings, so the interface layer routes to
+    whichever model matches the input it was actually given.
+    """
+    split = folds["splits"][str(fold_index)]
+    metrics: dict = {"fold": fold_index, "split": split}
+    trained: dict[str, Recogniser] = {}
+
+    for variant, with_context in (("context_free", False), ("context_aware", True)):
+        X_train, y_train, _, _ = load_users(split["train"], with_context)
+        X_val, y_val, _, _ = load_users(split["validation"], with_context)
+        X_test, y_test, _, _ = load_users(split["test"], with_context)
+
+        if variant == "context_free":
+            print(
+                f"  fold {fold_index}: train {len(X_train)}, val {len(X_val)}, test {len(X_test)} windows"
+            )
+        model = train(X_train, y_train, X_val, y_val, seed=seed)
+        result = evaluate(model, X_test, y_test)
+        result["standing_threshold"] = model.standing_split.threshold
+        result["temperature"] = model.temperature
+        result["n_features"] = int(X_train.shape[1])
+        result["n_train"] = len(X_train)
+        result["n_test"] = len(X_test)
+        metrics[variant] = result
+        trained[variant] = model
+        print(
+            f"    {variant:<14} {X_train.shape[1]:>3} features  "
+            f"accuracy {result['accuracy']:.3f}  macro-F1 {result['macro_f1']:.3f}"
+        )
+
+    # The Task 1 guard: how the context-aware model behaves with no neighbours.
+    X_test_plain, y_test_plain, _, _ = load_users(split["test"], with_context=False)
+    isolated = context.augment_isolated(X_test_plain)
+    truth, _ = trained["context_aware"].standing_split.apply(isolated, y_test_plain)
+    predicted = trained["context_aware"].predict(isolated)
+    metrics["context_aware_on_isolated_windows"] = float((predicted == truth).mean())
+    print(
+        f"    context_aware on isolated windows: "
+        f"{metrics['context_aware_on_isolated_windows']:.3f} "
+        f"(vs context_free {metrics['context_free']['accuracy']:.3f})"
+    )
+
+    # Kept flat for backwards compatibility with the earlier single-model runs.
+    metrics.update({k: v for k, v in metrics["context_free"].items() if k != "split"})
 
     if save:
         config.MODEL_DIR.mkdir(parents=True, exist_ok=True)
         joblib.dump(
-            {"model": model, "feature_names": feat.FEATURE_NAMES, "activities": config.ACTIVITIES},
+            {
+                "context_free": trained["context_free"],
+                "context_aware": trained["context_aware"],
+                "model": trained["context_free"],  # legacy key
+                "feature_names": feat.FEATURE_NAMES,
+                "feature_names_context": context.FEATURE_NAMES_FULL,
+                "activities": config.ACTIVITIES,
+            },
             config.MODEL_DIR / f"recogniser_fold{fold_index}.joblib",
         )
-    print(f"  fold {fold_index}: accuracy {metrics['accuracy']:.3f}, macro-F1 {metrics['macro_f1']:.3f}")
     return metrics
 
 
@@ -351,21 +421,29 @@ def main() -> int:
         results.append(run_fold(index, folds, seed=args.seed))
 
     if len(results) > 1:
-        accuracies = [r["accuracy"] for r in results]
-        f1s = [r["macro_f1"] for r in results]
-        print(f"\n{'='*60}")
-        print(f"Cross-validated accuracy : {np.mean(accuracies):.3f} +/- {np.std(accuracies):.3f}")
-        print(f"Cross-validated macro-F1 : {np.mean(f1s):.3f} +/- {np.std(f1s):.3f}")
+        print(f"\n{'='*72}")
+        print(f"{'variant':<16}{'accuracy':>18}{'macro-F1':>18}")
+        for variant in ("context_free", "context_aware"):
+            accuracies = [r[variant]["accuracy"] for r in results]
+            f1s = [r[variant]["macro_f1"] for r in results]
+            print(
+                f"{variant:<16}{np.mean(accuracies):>11.3f} +/- {np.std(accuracies):.3f}"
+                f"{np.mean(f1s):>11.3f} +/- {np.std(f1s):.3f}"
+            )
+        isolated = [r["context_aware_on_isolated_windows"] for r in results]
+        print(f"\ncontext_aware on isolated windows: {np.mean(isolated):.3f} (Task 1 guard)")
 
-        per_class: dict[str, list[float]] = {a: [] for a in config.ACTIVITIES}
-        for result in results:
-            for activity in config.ACTIVITIES:
-                if activity in result["report"]:
-                    per_class[activity].append(result["report"][activity]["f1-score"])
-        print(f"\n{'class':<22}{'mean F1':>9}{'std':>8}{'folds':>7}")
-        for activity, scores in per_class.items():
-            if scores:
-                print(f"{activity:<22}{np.mean(scores):>9.3f}{np.std(scores):>8.3f}{len(scores):>7}")
+        for variant in ("context_free", "context_aware"):
+            per_class: dict[str, list[float]] = {a: [] for a in config.ACTIVITIES}
+            for result in results:
+                for activity in config.ACTIVITIES:
+                    if activity in result[variant]["report"]:
+                        per_class[activity].append(result[variant]["report"][activity]["f1-score"])
+            print(f"\n{variant} per-class F1")
+            print(f"{'class':<22}{'mean F1':>9}{'std':>8}{'folds':>7}")
+            for activity, scores in per_class.items():
+                if scores:
+                    print(f"{activity:<22}{np.mean(scores):>9.3f}{np.std(scores):>8.3f}{len(scores):>7}")
 
     config.EVALUATION_DIR.mkdir(parents=True, exist_ok=True)
     output = config.EVALUATION_DIR / ("recognition_cv.json" if len(results) > 1 else f"recognition_fold{indices[0]}.json")
