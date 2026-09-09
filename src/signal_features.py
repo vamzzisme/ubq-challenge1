@@ -38,7 +38,7 @@ def _spectral_entropy(values: np.ndarray) -> float:
 
 
 def feature_names() -> list[str]:
-    channels = ["x", "y", "z", "magnitude"]
+    channels = ["acc_x", "acc_y", "acc_z", "acc_magnitude", "gyro_x", "gyro_y", "gyro_z", "gyro_magnitude"]
     statistics = [
         "mean",
         "std",
@@ -52,16 +52,28 @@ def feature_names() -> list[str]:
         "spectral_entropy",
     ]
     return [f"{channel}_{statistic}" for channel in channels for statistic in statistics] + [
-        "correlation_xy",
-        "correlation_xz",
-        "correlation_yz",
+        "acc_correlation_xy",
+        "acc_correlation_xz",
+        "acc_correlation_yz",
+        "gyro_correlation_xy",
+        "gyro_correlation_xz",
+        "gyro_correlation_yz",
     ]
 
 
 def extract_features(axes: np.ndarray, sample_rate_hz: float = 25.0) -> np.ndarray:
-    """Return interpretable time- and frequency-domain features for X/Y/Z."""
-    magnitude = np.linalg.norm(axes, axis=1)
-    channels = [axes[:, 0], axes[:, 1], axes[:, 2], magnitude]
+    """Return interpretable time- and frequency-domain features for 6 channels (Acc + Gyro)."""
+    acc_axes = axes[:, :3]
+    gyro_axes = axes[:, 3:]
+    
+    acc_magnitude = np.linalg.norm(acc_axes, axis=1)
+    gyro_magnitude = np.linalg.norm(gyro_axes, axis=1)
+    
+    channels = [
+        acc_axes[:, 0], acc_axes[:, 1], acc_axes[:, 2], acc_magnitude,
+        gyro_axes[:, 0], gyro_axes[:, 1], gyro_axes[:, 2], gyro_magnitude
+    ]
+    
     features: list[float] = []
     for values in channels:
         features.extend(
@@ -78,6 +90,11 @@ def extract_features(axes: np.ndarray, sample_rate_hz: float = 25.0) -> np.ndarr
                 _spectral_entropy(values),
             ]
         )
-    correlations = np.corrcoef(axes, rowvar=False)
-    features.extend(float(np.nan_to_num(correlations[i, j])) for i, j in [(0, 1), (0, 2), (1, 2)])
+        
+    acc_correlations = np.corrcoef(acc_axes, rowvar=False)
+    features.extend(float(np.nan_to_num(acc_correlations[i, j])) for i, j in [(0, 1), (0, 2), (1, 2)])
+    
+    gyro_correlations = np.corrcoef(gyro_axes, rowvar=False)
+    features.extend(float(np.nan_to_num(gyro_correlations[i, j])) for i, j in [(0, 1), (0, 2), (1, 2)])
+    
     return np.asarray(features, dtype=np.float64)

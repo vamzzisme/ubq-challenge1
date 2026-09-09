@@ -45,8 +45,20 @@ def read_index(path: Path) -> list[dict[str, str]]:
     return rows
 
 
-def make_features(rows: list[dict[str, str]]) -> npt.NDArray[Any]:
-    return np.vstack([extract_features(load_axes(row["sensor_csv_path"])) for row in rows])
+def make_features(rows: list[dict[str, str]]) -> tuple[npt.NDArray[Any], list[dict[str, str]]]:
+    valid_rows = []
+    features_list = []
+    for row in rows:
+        acc_path = Path(row["sensor_csv_path"])
+        gyro_path = Path(str(acc_path).replace("raw_acc", "proc_gyro"))
+        if not gyro_path.exists():
+            continue
+        acc_axes = load_axes(acc_path)
+        gyro_axes = load_axes(gyro_path)
+        combined = np.hstack((acc_axes, gyro_axes))
+        features_list.append(extract_features(combined))
+        valid_rows.append(row)
+    return np.vstack(features_list), valid_rows
 
 
 def write_confusion_matrix(path: Path, matrix: npt.NDArray[Any], labels: list[str]) -> None:
@@ -79,7 +91,11 @@ def main() -> int:
         raise ValueError("Each split must contain at least one recording. Check the supplied user IDs.")
 
     print(f"Extracting {len(train_rows)} train, {len(validation_rows)} validation, and {len(test_rows)} test feature vectors...")
-    train_x, validation_x, test_x = (make_features(split) for split in [train_rows, validation_rows, test_rows])
+    train_x, train_rows = make_features(train_rows)
+    validation_x, validation_rows = make_features(validation_rows)
+    test_x, test_rows = make_features(test_rows)
+    print(f"Retained {len(train_rows)} train, {len(validation_rows)} validation, and {len(test_rows)} test after skipping missing gyro data.")
+    
     train_y = np.asarray([row["activity"] for row in train_rows])
     validation_y = np.asarray([row["activity"] for row in validation_rows])
     test_y = np.asarray([row["activity"] for row in test_rows])

@@ -39,13 +39,25 @@ def load_model(model_path: Path) -> dict[str, Any]:
 def predict_recording(csv_path: Path, saved_model: dict[str, Any]) -> dict[str, Any]:
     """Return prediction, probabilities, and exact sensor evidence for one file."""
     start_time_s, modality_key = _recording_identity(csv_path)
-    modality, channels = MODALITY_DETAILS.get(modality_key, (modality_key, ["X", "Y", "Z"]))
-    axes = load_axes(csv_path)
-    features = extract_features(axes, sample_rate_hz=float(saved_model["sample_rate_hz"]))
+    acc_axes = load_axes(csv_path)
+    
+    gyro_path = Path(str(csv_path).replace("raw_acc", "proc_gyro"))
+    if gyro_path.exists():
+        gyro_axes = load_axes(gyro_path)
+        modality = "accelerometer, gyroscope"
+        channels = ["Acc X", "Acc Y", "Acc Z", "Gyro X", "Gyro Y", "Gyro Z"]
+    else:
+        gyro_axes = np.zeros_like(acc_axes)
+        modality = "accelerometer"
+        channels = ["Acc X", "Acc Y", "Acc Z"]
+        
+    combined_axes = np.hstack((acc_axes, gyro_axes))
+    features = extract_features(combined_axes, sample_rate_hz=float(saved_model["sample_rate_hz"]))
+    
     model = saved_model["model"]
     probabilities = model.predict_proba(features.reshape(1, -1))[0]
     predicted_index = int(np.argmax(probabilities))
-    duration_s = len(axes) / float(saved_model["sample_rate_hz"])
+    duration_s = len(acc_axes) / float(saved_model["sample_rate_hz"])
 
     feature_names = list(saved_model["feature_names"])
     importances = getattr(model, "feature_importances_", np.zeros(len(feature_names)))
@@ -65,7 +77,7 @@ def predict_recording(csv_path: Path, saved_model: dict[str, Any]) -> dict[str, 
             "source_csv": str(csv_path),
             "start_time_s": start_time_s,
             "end_time_s": start_time_s + duration_s,
-            "sample_count": int(len(axes)),
+            "sample_count": int(len(acc_axes)),
             "sample_rate_hz": float(saved_model["sample_rate_hz"]),
         },
         "prediction": {
