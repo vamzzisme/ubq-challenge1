@@ -1,121 +1,245 @@
-# Sensor-Grounded Activity Question Answering
+# Ask the Sensors
 
-CS60055 Ubiquitous Computing Hackathon Challenge 1.
+Grounded, explainable activity question answering from wearable accelerometer and
+gyroscope signals. CS60055 Ubiquitous Computing, Hackathon Challenge 1.
 
-This project answers natural-language questions about wearable accelerometer and gyroscope recordings, while citing the timestamped sensor evidence supporting each answer.
+Given a sensor recording and a natural-language question, the system returns a
+structured answer that cites the specific stretch of signal supporting it.
 
-## Completed Pipeline
-
-1. **Preprocessing**: Convert space-separated raw accelerometer and gyroscope `.dat` captures to CSV, resampled to 25 Hz.
-2. **Alignment**: Align recordings with self-labelled metadata and map them to six challenge activities.
-3. **Modelling**: Train models including a lightweight Random Forest baseline and a 6-axis 1D-CNN (Gyroscope + Accelerometer fusion).
-4. **Timeline**: Aggregate predictions into continuous activity intervals (timeline).
-5. **Question Answering**: Query the timeline with grounded evidence using a deterministic QA evaluation script.
-
-## Repository Layout
-
-```text
-data/           Local data only; never committed (raw, processed)
-src/            Preprocessing, modelling, inference, and QA scripts
-notebooks/      Exploratory analysis
-reports/        Report sources and generated figures
-artifacts/      Model checkpoints, timelines, and evaluation results
+```
+Query: "How long was the user walking?"
+Answer: 11559 seconds
+Activity/Event: walking
+Evidence:
+    Timestamp(s): 25485 to 26160, 28545 to 30300, 163563 to 165558, 183483 to 184278,
+                  202223 to 202958, 255083 to 256247 (+11 shorter intervals totalling 4440 s)
+                  (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Walking was detected in 17 intervals spanning 11559 s in total (193 min).
+             The recording samples about 23% of wall-clock time, so this span rests on
+             3075 s of directly observed sensor data.
 ```
 
-## Setup & Preprocessing
+**All timestamps are seconds from the start of the recording.**
+
+## Results
+
+Five-fold, user-disjoint cross-validation over 35 ExtraSensory users
+(165,787 windows, 7 activity classes). No user appears in both the training and
+evaluation side of any fold.
+
+### Activity recognition
+
+| stage | accuracy | macro-F1 |
+|---|---|---|
+| per-window, no temporal context | 0.457 ± 0.034 | 0.407 ± 0.052 |
+| per-window, with temporal context | 0.660 ± 0.035 | 0.529 ± 0.060 |
+| **+ HMM decoding (deployed)** | **0.703 ± 0.032** | 0.525 ± 0.061 |
+
+Per-class F1 (context-aware): lying down 0.776, sitting 0.702, bicycling 0.644,
+walking 0.508, standing and moving 0.449, running 0.398, standing in place 0.227.
+
+### Question answering
+
+1,159 generated cases, scored under the rule each answer type deserves.
+
+| question type | n | answer accuracy | grounded accuracy |
+|---|---|---|---|
+| verification | 245 | 0.902 | 0.445 |
+| open-world | 70 | 0.986 | 0.686 |
+| comparison | 34 | 0.882 | 0.500 |
+| identification | 228 | 0.474 | 0.360 |
+| grounding | 194 | 0.330 | 0.227 |
+| duration | 194 | 0.253 | 0.144 |
+| count | 194 | 0.144 | 0.072 |
+| **overall (macro across types)** | **1159** | **0.567** | **0.348** |
+
+Correctness rules: categorical answers by exact match; durations and onsets
+within `max(30 s, 10%)`; counts within ±1; *grounded* requires the answer to be
+correct **and** the cited interval to reach IoU ≥ 0.5 **and** the modality and
+channels to match.
+
+### Cost
+
+Measured on an arm64 laptop CPU, single process.
+
+| configuration | accuracy | size on disk | median latency | tree nodes |
+|---|---|---|---|---|
+| full (deployed) | 0.690 | 9.10 MB | 0.37 ms | 214,421 |
+| pruned | 0.689 | 8.05 MB | 0.48 ms | 191,702 |
+| **shallow (edge)** | 0.547 | **0.95 MB** | 0.36 ms | 11,322 |
+| context-free | 0.442 | 4.69 MB | 0.32 ms | 110,998 |
+
+Feature extraction adds 0.33 ms per window. `shallow` is the edge operating
+point: a 9.6× size reduction for 14 accuracy points.
+
+The open-world language model (Qwen2.5-0.5B-Instruct) is reported separately
+because it dominates: 494M parameters, 1,544 MB peak RSS, 8.9 s per query
+including weight loading — roughly 24,000× the cost of classifying a window.
+Only Task 4 questions that do not map onto the seven classes invoke it.
+
+Figures are in [`outputs/figures/`](outputs/figures/); the JSON behind every
+number is in [`outputs/evaluation/`](outputs/evaluation/).
+
+## Design
+
+The system is four layers, as the brief suggests, with a decoder between the
+second and third.
+
+```
+L1 preprocess  →  L2 recognise  →  HMM decode  →  L3 aggregate  →  L4 interface
+ clock-true       P(activity|w)    Viterbi       intervals,       question → operation
+ 25 Hz windows    XGBoost          time-aware    durations        → required format
+```
+
+**L1 — [`asqa/preprocess.py`](asqa/preprocess.py).** Resamples by *sensor
+timestamp*, not sample index. The accelerometer clock is genuinely uneven
+(measured dt 0.024–0.077 s) and 800 samples spans anywhere from ~9 s to ~25 s
+depending on the device, so index-based resampling compresses the window and
+misaligns the two modalities. Acc and gyro are interpolated onto one shared grid
+covering only the interval both actually observed.
+
+**L2 — [`asqa/features.py`](asqa/features.py), [`asqa/recognise.py`](asqa/recognise.py).**
+Physics-based features (gravity separation, tilt, autocorrelation cadence, jerk,
+spectral band powers) feeding a three-node hierarchy: static vs dynamic, then
+posture, then gait. Each node's decision variable is a nameable physical
+quantity, which is what lets the interface layer explain an answer rather than
+assert it.
+
+**Temporal context — [`asqa/context.py`](asqa/context.py).** Time-bounded rolling
+statistics over neighbouring windows. This is the single largest accuracy lever
+(+9 points): a 15-second window of stillness cannot distinguish lying from
+sitting, but a stretch of them can.
+
+**Decoder — [`asqa/decode.py`](asqa/decode.py).** A time-aware HMM. The
+per-minute transition matrix is raised to the power `Δt/60`, so a multi-hour
+dropout relaxes toward the stationary distribution instead of asserting that the
+user kept doing the same thing.
+
+**L3 — [`asqa/timeline.py`](asqa/timeline.py).** Merges windows into intervals
+and separates *observed* time from *spanned* time. ExtraSensory observes ~15 s in
+every 60, so a bout spanning 300 s rests on ~75 s of signal.
+
+**L4 — [`asqa/answer.py`](asqa/answer.py), [`asqa/slm.py`](asqa/slm.py).** Routes
+a question to one of six operations. Every timestamp, modality and channel it
+prints is copied from an interval the earlier layers produced. For open-world
+questions the language model picks from a numbered menu of real intervals; an id
+outside that menu is discarded rather than rendered.
+
+## Setup
 
 ```bash
-# Create & activate virtualenv (one-time)
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Convert and Resample Sensors
+### Data
 
-The supplied files live under `data/Original Data`. Convert the raw accelerometer and gyroscope captures to readable CSV and resample to 25 Hz:
+The ExtraSensory dataset (Vaizman et al., 2017) is **not committed**. Download
+from <http://extrasensory.ucsd.edu/> and arrange as:
 
-```bash
-# Accelerometer
-python3 src/prepare_sensor_data.py --input-dir "data/Original Data" --output-dir data/processed --modality raw_acc
-
-# Gyroscope
-python3 src/prepare_sensor_data.py --input-dir "data/Original Data" --output-dir data/processed --modality proc_gyro
+```
+data/
+  <UUID>.features_labels.csv          from ExtraSensory.per_uuid_features_labels.zip (215 MB)
+  Original Data/
+    acc/<UUID>/<timestamp>.m_raw_acc.dat      from ExtraSensory.raw_measurements.raw_acc.zip
+    gyro/<UUID>/<timestamp>.m_proc_gyro.dat   from ExtraSensory.raw_measurements.proc_gyro.zip
 ```
 
-### Build the Labelled Training Index
+The reported results use 35 users. The pipeline works with any subset present.
+
+## Reproducing the results
 
 ```bash
-python3 src/build_labeled_index.py \
-  --data-dir data \
-  --resampled-dir data/processed/raw_acc_25hz \
-  --output data/processed/raw_acc_training_index.csv
+python -m asqa.preprocess              # raw .dat -> 25 Hz windows, cached per user
+python -m asqa.splits                  # rare-class-aware, user-disjoint folds
+python -m asqa.recognise --build-features
+python -m asqa.recognise --cv          # trains context-free + context-aware per fold
+python -m asqa.decode --cv             # HMM decoding, both variants, both methods
+python -m asqa.evaluate --cv           # QA scoring by question type
+python -m asqa.benchmark --fold 3      # size, latency, memory, operating points
+python -m asqa.robustness --fold 3     # noise / dropout / sampling-rate sweeps
+python -m asqa.figures                 # the five required figures
 ```
 
-## Modelling
+Preprocessing takes roughly 15 minutes for 35 users and produces ~1.2 GB of
+cache. Everything downstream reads that cache.
 
-You can train either the Random Forest Baseline (accelerometer only) or the 1D-CNN (6-channel fused accelerometer + gyroscope).
+Fold assignment is committed (`outputs/folds_w15.json`) so the split behind the
+reported numbers is exactly reproducible.
 
-### Random Forest Baseline (Acc-only)
+## Answering questions about a recording
+
 ```bash
-python3 src/train_baseline.py \
-  --validation-user 2C32C23E-E30C-498A-8DD2-0EFB9150A02E \
-  --test-user 0A986513-7828-4D53-AA1F-E02D6DF9561B
+python run.py --recording <path|user-id> --questions tests/questions_all_tiers.txt
+python run.py --recording <path|user-id> --question "How long was the user walking?"
 ```
 
-### 1D-CNN (Acc + Gyro Fusion)
+`--recording` accepts a directory of raw `.dat` files, a single `.m_raw_acc.dat`
+file (the Task 1 single-window case), or a preprocessed user id. Useful flags:
+`--json` for machine-readable output, `--output FILE` to write to disk,
+`--save-timeline FILE` to keep the intermediate activity timeline, and
+`--no-slm` to disable the language model.
+
+## Tests
+
 ```bash
-python3 src/train_cnn.py --epochs 60 --batch-size 128
+python -m tests.test_preprocess   # clock-true resampling; catches the 2.000 -> 2.300 Hz error
+python -m tests.test_context      # no cross-recording bleed, no context across dropouts
+python -m tests.test_answer       # question parsing and the required output contract
 ```
 
-## Inference & Timeline Generation
+## Repository layout
 
-Predict a single recording to see the evidence JSON schema:
-```bash
-# Using Random Forest
-python3 src/predict.py data/processed/raw_acc_25hz/<USER_ID>/<TIMESTAMP>.m_raw_acc.csv
-
-# Using CNN
-python3 src/predict_cnn.py data/processed/raw_acc_25hz/<USER_ID>/<TIMESTAMP>.m_raw_acc.csv --model artifacts/cnn/cnn_checkpoint.pt
+```
+asqa/          the system, one module per layer
+run.py         the runnable entry point
+tests/         regression tests and an all-tier question set
+outputs/       models, timelines, evaluation JSON, figures (regenerable)
+data/          local data only; never committed
+src/           LEGACY first implementation, kept for the before/after comparison
 ```
 
-Batch-predict a whole user's directory and build a timeline:
-```bash
-# Predict directory with CNN
-python3 src/predict_directory_cnn.py \
-  --input-dir data/processed/raw_acc_25hz/<USER_ID> \
-  --output-dir artifacts/predictions_cnn/<USER_ID> \
-  --model artifacts/cnn/cnn_checkpoint.pt
+## Known limitations
 
-# Build the timeline
-python3 src/build_timeline.py \
-  --predictions-dir artifacts/predictions_cnn/<USER_ID> \
-  --output artifacts/timelines/<USER_ID>_cnn.json
-```
+Stated plainly, because several are properties of the data rather than of the
+system.
 
-## Grounded Question Answering
+- **`standing_in_place` is weak (0.227 F1).** It is a *derived* class: ExtraSensory
+  annotates one `OR_standing` label, and the brief asks for two standing classes,
+  so the split is made on measured body-acceleration energy with a threshold
+  fitted on training users only. Rows carry a provenance marker so this class can
+  be scored separately from the five annotated ones.
+- **Counts and durations score lowest.** Both depend on bout boundaries, so a
+  fragmented prediction hurts them more than it hurts a yes/no answer.
+- **Running remains hard (0.398 F1, high variance).** It is 0.34% of labelled
+  windows. Worse, some running-labelled windows contain no motion at all — one
+  user's 68 running windows have the same body-acceleration energy as lying down
+  (0.003 g) while their walking reads 0.333 g, i.e. the phone was not on them.
+- **Lying vs sitting is the dominant residual confusion.** When the phone is
+  off-body and still, the two are not separable from accelerometer geometry
+  alone. Temporal context substantially mitigates this but does not remove it.
+- **The 0.5B language model is a weak reasoner.** Asked to judge "a wheeled or
+  pedal-based mode of movement" it answered "Pedal-based mode" while citing a
+  *sitting* interval. Behaviour phrases that map onto the seven classes are
+  therefore resolved deterministically; the model is used for prose, not verdicts.
+- **PyTorch and XGBoost cannot share an interpreter here** — importing torch into
+  a process that has run XGBoost segfaults on this platform, on both MPS and CPU.
+  The language model runs in an isolated worker process
+  ([`asqa/slm_worker.py`](asqa/slm_worker.py)).
 
-Once you have a timeline, you can ask direct duration, verification, or counting questions:
-```bash
-python3 src/qa.py \
-  --timeline artifacts/timelines/<USER_ID>_cnn.json \
-  --question "How long was the user walking?"
-```
+## Citations
 
-## Evaluation
-
-To evaluate the pipeline against ground truth:
-```bash
-# 1. Build Ground Truth Timeline
-python3 src/build_ground_truth_timeline.py --user-id 0A986513-7828-4D53-AA1F-E02D6DF9561B --output artifacts/evaluation/ground_truth.json
-
-# 2. Generate QA Cases
-python3 src/generate_qa_cases.py --ground-truth-timeline artifacts/evaluation/ground_truth.json --output artifacts/evaluation/qa_cases.json
-
-# 3. Evaluate your predicted timeline against the QA cases
-python3 src/evaluate_qa.py --predicted-timeline artifacts/timelines/0A986513-7828-4D53-AA1F-E02D6DF9561B_cnn.json --qa-cases artifacts/evaluation/qa_cases.json --output artifacts/evaluation/qa_results.json
-```
+- **Dataset.** Y. Vaizman, K. Ellis, G. Lanckriet. "Recognizing Detailed Human
+  Context In-the-Wild from Smartphones and Smartwatches." *IEEE Pervasive
+  Computing*, 2017. <http://extrasensory.ucsd.edu/>
+- **Language model.** Qwen2.5-0.5B-Instruct, Alibaba Cloud (Apache 2.0), used for
+  Task 4 open-world reasoning.
+- **Libraries.** NumPy, SciPy, scikit-learn, XGBoost, PyTorch, Hugging Face
+  Transformers, Matplotlib.
 
 ## Academic integrity
 
-All external datasets, models, libraries, and AI assistance used during development will be cited and disclosed in the final report, as required by the challenge brief.
+Per-member contributions and the AI-use disclosure are in the technical report.
