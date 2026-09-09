@@ -79,12 +79,16 @@ def augment_window(x: torch.Tensor) -> torch.Tensor:
     if torch.rand(1).item() < 0.5:
         shift = torch.randint(-50, 51, (1,)).item()
         x = torch.roll(x, shifts=int(shift), dims=1)
-    # Random time-warp via resampling a segment
-    if torch.rand(1).item() < 0.3:
-        # Zero out a random 10-50 sample segment (simulates dropout)
-        seg_len = torch.randint(10, 51, (1,)).item()
+    # Random time-warp via resampling a segment (Sensor Dropout)
+    if torch.rand(1).item() < 0.5:
+        seg_len = torch.randint(20, 100, (1,)).item()
         start = torch.randint(0, 500 - seg_len, (1,)).item()
         x[:, start:start + seg_len] = 0.0
+    # Axis Permutation (simulates different phone orientations)
+    if torch.rand(1).item() < 0.3:
+        perm = torch.randperm(3)
+        x[:3, :] = x[perm, :]
+        x[3:, :] = x[3 + perm, :]
     return x
 
 
@@ -108,46 +112,73 @@ class AccelWindowDataset(Dataset):
 
 # ── Model ────────────────────────────────────────────────────────────────────
 
-class ConvBlock(nn.Module):
-    def __init__(self, in_ch: int, out_ch: int, kernel: int = 5, pool: int = 2) -> None:
+class ResBlock(nn.Module):
+    def __init__(self, in_ch: int, out_ch: int, pool: bool = False) -> None:
         super().__init__()
-        self.block = nn.Sequential(
-            nn.Conv1d(in_ch, out_ch, kernel, padding=kernel // 2),
-            nn.BatchNorm1d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.MaxPool1d(pool),
-        )
+        self.conv1 = nn.Conv1d(in_ch, out_ch, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm1d(out_ch)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv1d(out_ch, out_ch, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm1d(out_ch)
+        
+        self.pool = nn.MaxPool1d(2) if pool else nn.Identity()
+        
+        if in_ch != out_ch or pool:
+            self.shortcut = nn.Sequential(
+                nn.Conv1d(in_ch, out_ch, kernel_size=1),
+                self.pool
+            )
+        else:
+            self.shortcut = nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.block(x)
+        identity = self.shortcut(x)
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.pool(out)
+        out += identity
+        out = self.relu(out)
+        return out
 
 
 class AccelCNN(nn.Module):
-    """Compact 1D-CNN: 3 conv blocks → GAP → FC head."""
+    """Robust 1D-ResNet + BiLSTM for complex activity patterns."""
 
     def __init__(self, num_classes: int = 6, in_channels: int = 6) -> None:
         super().__init__()
-        self.features = nn.Sequential(
-            ConvBlock(in_channels, 32, kernel=7, pool=2),   # 500 → 250
-            nn.Dropout(0.1),
-            ConvBlock(32, 64, kernel=5, pool=2),             # 250 → 125
-            nn.Dropout(0.1),
-            ConvBlock(64, 128, kernel=3, pool=2),            # 125 → 62
-            nn.Dropout(0.1),
-            ConvBlock(128, 128, kernel=3, pool=2),           # 62 → 31
-        )
-        self.classifier = nn.Sequential(
-            nn.AdaptiveAvgPool1d(1),
-            nn.Flatten(),
-            nn.Dropout(0.3),
-            nn.Linear(128, 64),
+        self.stem = nn.Sequential(
+            nn.Conv1d(in_channels, 32, kernel_size=7, padding=3),
+            nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
-            nn.Linear(64, num_classes),
+            nn.MaxPool1d(2)
+        )
+        
+        self.layer1 = ResBlock(32, 64, pool=True)
+        self.layer2 = ResBlock(64, 128, pool=True)
+        self.layer3 = ResBlock(128, 128, pool=True)
+        
+        self.lstm = nn.LSTM(input_size=128, hidden_size=64, batch_first=True, bidirectional=True)
+        
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.4),
+            nn.Linear(128, num_classes)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.classifier(self.features(x))
+        out = self.stem(x)
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        
+        out = out.permute(0, 2, 1) 
+        out, _ = self.lstm(out)
+        
+        out = out.mean(dim=1) 
+        
+        return self.classifier(out)
 
 
 # ── Training ─────────────────────────────────────────────────────────────────
@@ -264,8 +295,19 @@ def main() -> int:
         for x, y in train_loader:
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
-            logits = model(x)
-            loss = criterion(logits, y)
+            
+            # MixUp implementation
+            if torch.rand(1).item() < 0.3:
+                lam = np.random.beta(0.2, 0.2)
+                index = torch.randperm(x.size(0)).to(device)
+                x = lam * x + (1 - lam) * x[index, :]
+                y_a, y_b = y, y[index]
+                logits = model(x)
+                loss = lam * criterion(logits, y_a) + (1 - lam) * criterion(logits, y_b)
+            else:
+                logits = model(x)
+                loss = criterion(logits, y)
+                
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item() * x.size(0)
