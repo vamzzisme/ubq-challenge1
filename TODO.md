@@ -7,10 +7,10 @@ Here is the final roadmap for the remaining deliverables in the project:
 - [x] Update `src/train_baseline.py` to load both modalities and train the updated RF.
 - [x] Update `src/inference.py` to zero-pad missing gyro data and maintain pipeline stability.
 
-## 2. SLM Query Engine & Open-World Reasoning
-- [ ] Replace the deterministic regex logic in `src/qa.py` with an SLM (Small Language Model).
-- [ ] Ensure the SLM strictly grounds its answers using the timeline and doesn't invent timestamps.
-- [ ] Implement Task 4 (Open-World Activity Reasoning) by prompting the SLM to explain untrained behaviors (e.g., "strenuous activity", "wheeled movement") based on signal characteristics.
+## 2. SLM Query Engine & Open-World Reasoning (Done)
+- [x] Integrate Qwen2.5-0.5B-Instruct via HuggingFace `transformers`.
+- [x] Convert timeline segments into a compact prompt.
+- [x] Update `src/qa.py` to seamlessly route untrained/open-world queries to the SLM.
 
 ## 3. Robustness Evaluation
 - [ ] Build a script to test the model against degraded inputs (dropped samples, added noise).

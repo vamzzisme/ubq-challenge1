@@ -97,56 +97,52 @@ def execute(question: str, timeline: dict[str, Any]) -> dict[str, Any]:
         by_activity[segment["activity"]].append(segment)
 
     if any(phrase in lower for phrase in ["how long", "duration", "total time"]):
-        if len(activities) != 1:
-            return result("N/A", "N/A", [], "Please name exactly one activity for a duration question.")
-        selected = by_activity[activities[0]]
-        duration = sum(segment["observed_duration_s"] for segment in selected)
-        return result(
-            f"{duration:.0f} observed seconds",
-            activities[0],
-            selected,
-            f"This sums only the {len(observed_windows(selected))} directly observed 20-second sensor windows predicted as {activities[0]}; unobserved gaps are not counted.",
-        )
+        if len(activities) == 1:
+            selected = by_activity[activities[0]]
+            duration = sum(segment["observed_duration_s"] for segment in selected)
+            return result(
+                f"{duration:.0f} observed seconds",
+                activities[0],
+                selected,
+                f"This sums only the {len(observed_windows(selected))} directly observed 20-second sensor windows predicted as {activities[0]}; unobserved gaps are not counted.",
+            )
 
     if any(phrase in lower for phrase in ["how many times", "how often", "number of times", "count"]):
-        if len(activities) != 1:
-            return result("N/A", "N/A", [], "Please name exactly one activity for a count question.")
-        selected = by_activity[activities[0]]
-        return result(
-            str(len(selected)),
-            f"{activities[0]} bouts",
-            selected,
-            "A bout is one group of equal-activity observed windows with no more than the configured unobserved gap between them.",
-        )
+        if len(activities) == 1:
+            selected = by_activity[activities[0]]
+            return result(
+                str(len(selected)),
+                f"{activities[0]} bouts",
+                selected,
+                "A bout is one group of equal-activity observed windows with no more than the configured unobserved gap between them.",
+            )
 
     if "more time" in lower or "longer" in lower or "compare" in lower:
-        if len(activities) != 2:
-            return result("N/A", "N/A", [], "Please name two activities to compare.")
-        first, second = activities
-        first_duration = sum(segment["observed_duration_s"] for segment in by_activity[first])
-        second_duration = sum(segment["observed_duration_s"] for segment in by_activity[second])
-        winner = first if first_duration > second_duration else second if second_duration > first_duration else "Equal"
-        selected = by_activity[first] + by_activity[second]
-        return result(
-            winner,
-            f"{first}, {second}",
-            selected,
-            f"Observed {first_duration:.0f} seconds for {first} and {second_duration:.0f} seconds for {second}; unobserved gaps are excluded.",
-        )
+        if len(activities) == 2:
+            first, second = activities
+            first_duration = sum(segment["observed_duration_s"] for segment in by_activity[first])
+            second_duration = sum(segment["observed_duration_s"] for segment in by_activity[second])
+            winner = first if first_duration > second_duration else second if second_duration > first_duration else "Equal"
+            selected = by_activity[first] + by_activity[second]
+            return result(
+                winner,
+                f"{first}, {second}",
+                selected,
+                f"Observed {first_duration:.0f} seconds for {first} and {second_duration:.0f} seconds for {second}; unobserved gaps are excluded.",
+            )
 
     if any(phrase in lower for phrase in ["begin", "start", "when did", "when was"]):
-        if len(activities) != 1:
-            return result("N/A", "N/A", [], "Please name exactly one activity for an onset question.")
-        selected = by_activity[activities[0]]
-        if not selected:
-            return result("No", activities[0], [], f"No observed window was predicted as {activities[0]}.")
-        first = selected[0]
-        return result(
-            f"{first['relative_start_s']:.0f} seconds from start",
-            f"onset of {activities[0]}",
-            [first],
-            f"The first observed window predicted as {activities[0]} begins at the cited time.",
-        )
+        if len(activities) == 1:
+            selected = by_activity[activities[0]]
+            if not selected:
+                return result("No", activities[0], [], f"No observed window was predicted as {activities[0]}.")
+            first = selected[0]
+            return result(
+                f"{first['relative_start_s']:.0f} seconds from start",
+                f"onset of {activities[0]}",
+                [first],
+                f"The first observed window predicted as {activities[0]} begins at the cited time.",
+            )
 
     if time_s is not None and ("what" in lower or "activity" in lower or "doing" in lower):
         matching = segments_covering_time(segments, time_s)
@@ -176,16 +172,20 @@ def execute(question: str, timeline: dict[str, Any]) -> dict[str, Any]:
         )
 
     if any(lower.startswith(prefix) for prefix in ["is ", "was ", "did ", "has "]) or "whether" in lower:
-        if len(activities) != 1:
-            return result("N/A", "N/A", [], "Please name exactly one activity for a verification question.")
-        selected = by_activity[activities[0]]
-        if time_s is not None:
-            selected = segments_covering_time(selected, time_s)
-        answer = "Yes" if selected else "No"
-        location = f" at {time_s:.0f} seconds from start" if time_s is not None else ""
-        return result(answer, activities[0], selected, f"{len(observed_windows(selected))} observed sensor windows were predicted as {activities[0]}{location}.")
+        if len(activities) == 1:
+            selected = by_activity[activities[0]]
+            if time_s is not None:
+                selected = segments_covering_time(selected, time_s)
+            answer = "Yes" if selected else "No"
+            location = f" at {time_s:.0f} seconds from start" if time_s is not None else ""
+            return result(answer, activities[0], selected, f"{len(observed_windows(selected))} observed sensor windows were predicted as {activities[0]}{location}.")
 
-    return result("N/A", "N/A", [], "This baseline executor supports identification-at-time, verification, duration, count, comparison, and onset questions.")
+    # Fallback to SLM for Task 4: Open-World Activity Reasoning
+    try:
+        from slm_engine import slm_open_world_reasoning
+        return slm_open_world_reasoning(question, timeline)
+    except Exception as e:
+        return result("N/A", "N/A", [], f"SLM open-world reasoning failed or not installed: {e}")
 
 
 def render_text(answer: dict[str, Any]) -> str:
