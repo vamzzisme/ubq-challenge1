@@ -1,10 +1,7 @@
 # Raw and derived data
-data/raw/
-data/*/
+data/Original Data/
 data/*.features_labels.csv
-data/interim/
-!data/processed/
-data/processed/*
+data/processed/
 !data/processed/.gitkeep
 
 # Python
