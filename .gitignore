@@ -3,7 +3,9 @@ data/raw/
 data/*/
 data/*.features_labels.csv
 data/interim/
-data/processed/
+!data/processed/
+data/processed/*
+!data/processed/.gitkeep
 
 # Python
 __pycache__/
@@ -21,5 +23,24 @@ venv/
 *.onnx
 *.tflite
 
-# Reproducible training outputs
-artifacts/
+# Reproducible training outputs (keep the folder layout, ignore generated results)
+artifacts/*
+!artifacts/.gitkeep
+!artifacts/baseline/
+!artifacts/benchmarks/
+!artifacts/evaluation/
+!artifacts/predictions/
+!artifacts/rf_medium/
+!artifacts/timelines/
+artifacts/baseline/*
+!artifacts/baseline/.gitkeep
+artifacts/benchmarks/*
+!artifacts/benchmarks/.gitkeep
+artifacts/evaluation/*
+!artifacts/evaluation/.gitkeep
+artifacts/predictions/*
+!artifacts/predictions/.gitkeep
+artifacts/rf_medium/*
+!artifacts/rf_medium/.gitkeep
+artifacts/timelines/*
+!artifacts/timelines/.gitkeep

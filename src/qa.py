@@ -67,10 +67,14 @@ def format_ranges(segments: list[dict[str, Any]]) -> str:
 
 def evidence(segments: list[dict[str, Any]]) -> dict[str, str]:
     if not segments:
-        return {"timestamps": "N/A", "modality": "N/A", "channels": "N/A"}
+        return {"timestamps": "N/A", "modality": "N/A", "channels": "N/A", "intervals": []}
     modalities = sorted({segment["sensor_modality"] for segment in segments})
     channels = sorted({channel for segment in segments for channel in segment["sensor_channels"]})
-    return {"timestamps": format_ranges(segments), "modality": ", ".join(modalities), "channels": ", ".join(channels)}
+    intervals = [
+        {"start_s": window["relative_start_s"], "end_s": window["relative_end_s"]}
+        for window in observed_windows(segments)
+    ]
+    return {"timestamps": format_ranges(segments), "modality": ", ".join(modalities), "channels": ", ".join(channels), "intervals": intervals}
 
 
 def result(answer: str, event: str, segments: list[dict[str, Any]], explanation: str) -> dict[str, Any]:

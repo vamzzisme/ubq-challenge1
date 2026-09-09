@@ -146,6 +146,35 @@ observed sensor seconds. An SLM can be added later to translate flexible
 language into these same bounded operations; it will not be allowed to invent
 activity labels or timestamps.
 
+### Evaluate QA answers and grounding
+
+Build a self-label timeline and deterministic labelled QA cases for a held-out
+user. These are evaluation-only artifacts, never training data:
+
+```bash
+.venv/bin/python src/build_ground_truth_timeline.py \
+  --user-id 0A986513-7828-4D53-AA1F-E02D6DF9561B \
+  --output artifacts/evaluation/ground_truth_0A986.json
+
+.venv/bin/python src/generate_qa_cases.py \
+  --ground-truth-timeline artifacts/evaluation/ground_truth_0A986.json \
+  --output artifacts/evaluation/qa_cases_0A986.json
+```
+
+After batch-predicting the same user and building its predicted timeline,
+score answer correctness, evidence IoU, and fully grounded accuracy:
+
+```bash
+.venv/bin/python src/evaluate_qa.py \
+  --predicted-timeline artifacts/timelines/0A986513-7828-4D53-AA1F-E02D6DF9561B.json \
+  --qa-cases artifacts/evaluation/qa_cases_0A986.json \
+  --output artifacts/evaluation/qa_results_0A986.json
+```
+
+The output has per-question-type answer accuracy, grounded accuracy, and mean
+evidence IoU. It is the source data for the required accuracy-by-question-type
+and accuracy-versus-strictness figures.
+
 ## Academic integrity
 
 All external datasets, models, libraries, and AI assistance used during development will be cited and disclosed in the final report, as required by the challenge brief.
