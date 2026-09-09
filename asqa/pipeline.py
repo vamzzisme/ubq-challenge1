@@ -75,13 +75,21 @@ def load_recording(recording: str | Path) -> LoadedRecording:
       * a single ``.m_raw_acc.dat`` file (the Task 1 case)
     """
     target = Path(recording)
+    name = str(recording)
 
-    # A cached user id.
+    # A bare user id resolves to the cache first.  Checking the filesystem first
+    # instead is fragile: a stray empty directory sharing the user's name (data
+    # copies leave these behind) silently shadows the cache and the recording
+    # reads as empty.
+    if "/" not in name and not target.suffix and cache_path(name).exists():
+        data = load_cached(name)
+        return LoadedRecording(data.windows, data.epoch_ts, source=name)
+
     if not target.exists():
-        cached = cache_path(str(recording))
+        cached = cache_path(name)
         if cached.exists():
-            data = load_cached(str(recording))
-            return LoadedRecording(data.windows, data.epoch_ts, source=str(recording))
+            data = load_cached(name)
+            return LoadedRecording(data.windows, data.epoch_ts, source=name)
         raise FileNotFoundError(f"No recording found for {recording!r}")
 
     if target.suffix == ".npz":

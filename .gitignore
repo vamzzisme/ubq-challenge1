@@ -49,9 +49,12 @@ outputs/*
 !outputs/evaluation/
 outputs/evaluation/*
 !outputs/evaluation/.gitkeep
+!outputs/evaluation/*.json
+!outputs/evaluation/*.txt
 !outputs/figures/
 outputs/figures/*
 !outputs/figures/.gitkeep
+!outputs/figures/*.png
 !outputs/models/
 outputs/models/*
 !outputs/models/.gitkeep

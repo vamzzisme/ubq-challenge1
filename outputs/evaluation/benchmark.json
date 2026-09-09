@@ -1,0 +1,70 @@
+{
+  "target": {
+    "machine": "arm64",
+    "processor": "arm",
+    "system": "Darwin 25.6.0",
+    "python": "3.14.7",
+    "note": "Laptop-class CPU; single process, no GPU used for the classifier."
+  },
+  "fold": 3,
+  "test_windows": 36087,
+  "peak_rss_mb_process": 855.4,
+  "feature_extraction_ms": 0.333,
+  "operating_points": [
+    {
+      "configuration": "full",
+      "note": "deployed model: hierarchical XGBoost, temporal context",
+      "accuracy": 0.6899,
+      "macro_f1": 0.6217,
+      "n_features": 103,
+      "tree_nodes": 214421,
+      "size_mb": 9.095,
+      "mean_ms": 0.387,
+      "median_ms": 0.366,
+      "p95_ms": 0.478
+    },
+    {
+      "configuration": "context-free",
+      "note": "no temporal context: 40 features",
+      "accuracy": 0.4415,
+      "macro_f1": 0.412,
+      "n_features": 40,
+      "tree_nodes": 110998,
+      "size_mb": 4.69,
+      "mean_ms": 0.34,
+      "median_ms": 0.315,
+      "p95_ms": 0.419
+    },
+    {
+      "configuration": "shallow",
+      "note": "depth 3, 100 trees: the edge candidate",
+      "accuracy": 0.5468,
+      "macro_f1": 0.5521,
+      "n_features": 103,
+      "tree_nodes": 11322,
+      "size_mb": 0.948,
+      "mean_ms": 0.364,
+      "median_ms": 0.362,
+      "p95_ms": 0.469
+    },
+    {
+      "configuration": "pruned",
+      "note": "62 of 103 features retained",
+      "accuracy": 0.6885,
+      "macro_f1": 0.5887,
+      "n_features": 62,
+      "tree_nodes": 191702,
+      "size_mb": 8.053,
+      "mean_ms": 0.479,
+      "median_ms": 0.481,
+      "p95_ms": 0.532
+    }
+  ],
+  "language_model": {
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "parameters": 494032768,
+    "latency_s_including_cold_start": 8.92,
+    "peak_rss_mb": 1544.0,
+    "note": "Runs in an isolated process (PyTorch and XGBoost cannot share one interpreter here). Latency includes loading the weights, which dominates a single query; a served deployment would amortise it."
+  }
+}

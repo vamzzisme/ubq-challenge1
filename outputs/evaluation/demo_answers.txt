@@ -1,0 +1,173 @@
+Time base: all timestamps are seconds from the start of the recording.
+
+Query: "What activity is the user performing?"
+Answer: sitting
+Activity/Event: sitting
+Evidence:
+    Timestamp(s): 13020 to 25440, 30345 to 46346, 96409 to 125224, 187623 to 195738, 203003 to 214058, 247103 to 255038 (+19 shorter intervals totalling 61786 s) (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Sitting accounts for the greatest share of the recording (2435 min across 25 bouts), shown by body-acceleration energy 0.003 g, a gravity vector 31 deg from the device axis, gyroscope energy 0.002 rad/s.
+
+Query: "What activity was the user doing at 25500 seconds?"
+Answer: walking
+Activity/Event: walking
+Evidence:
+    Timestamp(s): 25485 to 26160 (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: The sensor window covering 25500 s was classified as walking (confidence 0.62), on body-acceleration energy 0.373 g, a 1.0 Hz cadence, a gravity vector 88 deg from the device axis.
+
+Query: "Is the user running?"
+Answer: No
+Activity/Event: running
+Evidence:
+    Timestamp(s): N/A
+    Sensor Modality: N/A
+    Sensor Channel(s): N/A
+Explanation: No window in the recording was classified as running. The activities detected were: lying down, sitting, standing in place, standing and moving, walking.
+
+Query: "Did the user walk at any point?"
+Answer: Yes
+Activity/Event: walking
+Evidence:
+    Timestamp(s): 25485 to 26160, 28545 to 30300, 163563 to 165558, 183483 to 184278, 202223 to 202958, 255083 to 256247 (+11 shorter intervals totalling 4440 s) (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Walking was detected across 17 intervals totalling 11559 s, identified from body-acceleration energy 0.355 g, a 1.7 Hz cadence, a gravity vector 75 deg from the device axis.
+
+Query: "Was the user bicycling?"
+Answer: No
+Activity/Event: bicycling
+Evidence:
+    Timestamp(s): N/A
+    Sensor Modality: N/A
+    Sensor Channel(s): N/A
+Explanation: No window in the recording was classified as bicycling. The activities detected were: lying down, sitting, standing in place, standing and moving, walking.
+
+Query: "How long was the user walking?"
+Answer: 11559 seconds
+Activity/Event: walking
+Evidence:
+    Timestamp(s): 25485 to 26160, 28545 to 30300, 163563 to 165558, 183483 to 184278, 202223 to 202958, 255083 to 256247 (+11 shorter intervals totalling 4440 s) (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Walking was detected in 17 intervals spanning 11559 s in total (193 min). The recording samples about 23% of wall-clock time, so this span of 11559 s rests on 3075 s of directly observed sensor data.
+
+Query: "How much time did the user spend sitting?"
+Answer: 146127 seconds
+Activity/Event: sitting
+Evidence:
+    Timestamp(s): 13020 to 25440, 30345 to 46346, 96409 to 125224, 187623 to 195738, 203003 to 214058, 247103 to 255038 (+19 shorter intervals totalling 61786 s) (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Sitting was detected in 25 intervals spanning 146127 s in total (2435 min). The recording samples about 23% of wall-clock time, so this span of 146127 s rests on 36810 s of directly observed sensor data.
+
+Query: "How many times did the user walk?"
+Answer: 17
+Activity/Event: walking bouts
+Evidence:
+    Timestamp(s): 25485 to 26160, 28545 to 30300, 163563 to 165558, 183483 to 184278, 202223 to 202958, 255083 to 256247 (+11 shorter intervals totalling 4440 s) (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: 17 separate walking bouts were detected. A bout is a run of consecutive windows of the same activity separated by no more than 180 s; the longest lasted 1995 s.
+
+Query: "How often was the user lying down?"
+Answer: 4
+Activity/Event: lying down bouts
+Evidence:
+    Timestamp(s): 51375 to 58830, 62355 to 65370, 130522 to 157177, 219743 to 241598 (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: 4 separate lying down bouts were detected. A bout is a run of consecutive windows of the same activity separated by no more than 180 s; the longest lasted 26655 s.
+
+Query: "Did the user spend more time walking or sitting?"
+Answer: sitting
+Activity/Event: walking, sitting
+Evidence:
+    Timestamp(s): 13020 to 25440, 30345 to 46346, 96409 to 125224, 187623 to 195738, 203003 to 214058, 247103 to 255038 (+36 shorter intervals totalling 73345 s) (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Walking totals 11559 s across 17 bouts and sitting totals 146127 s across 25 bouts, so sitting occupies more of the recording.
+
+Query: "Which activity took the most time?"
+Answer: sitting
+Activity/Event: sitting, lying down, walking
+Evidence:
+    Timestamp(s): 13020 to 25440, 30345 to 46346, 96409 to 125224, 187623 to 195738, 203003 to 214058, 247103 to 255038 (+19 shorter intervals totalling 61786 s) (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Sitting occupies the most time (2435 min), ahead of lying down (983 min), walking (193 min).
+
+Query: "Did the user begin walking at any point, and if so, when?"
+Answer: Yes, walking began at 1440 seconds
+Activity/Event: Onset of walking
+Evidence:
+    Timestamp(s): 1440 to 2055 (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: The first window classified as walking begins at 1440 s and the bout continues to 2055 s, marked by body-acceleration energy 0.223 g, a 1.8 Hz cadence, a gravity vector 23 deg from the device axis.
+
+Query: "When did the user first start lying down?"
+Answer: Yes, lying down began at 51375 seconds
+Activity/Event: Onset of lying down
+Evidence:
+    Timestamp(s): 51375 to 58830 (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: The first window classified as lying down begins at 51375 s and the bout continues to 58830 s, marked by body-acceleration energy 0.002 g, a gravity vector 40 deg from the device axis, gyroscope energy 0.003 rad/s.
+
+Query: "When was the user standing in place?"
+Answer: Yes, standing in place began at 172863 seconds
+Activity/Event: Onset of standing in place
+Evidence:
+    Timestamp(s): 172863 to 175278 (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: The first window classified as standing in place begins at 172863 s and the bout continues to 175278 s, marked by body-acceleration energy 0.002 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.002 rad/s.
+
+Query: "Did the user lie down for a prolonged period?"
+Answer: Yes
+Activity/Event: lying down
+Evidence:
+    Timestamp(s): 51375 to 58830, 62355 to 65370, 130522 to 157177, 219743 to 241598 (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Lying down was detected across 4 intervals totalling 58980 s, identified from body-acceleration energy 0.001 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.002 rad/s.
+
+Query: "Was the user using a wheeled or pedal-based mode of movement?"
+Answer: Unable to determine
+Activity/Event: sitting
+Evidence:
+    Timestamp(s): 13020 to 25440 (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: The language model was unavailable (RuntimeError). The most relevant interval retrieved was 13020 to 25440 s, classified sitting.
+
+Query: "Was the user doing anything strenuous?"
+Answer: Yes
+Activity/Event: walking or running or bicycling
+Evidence:
+    Timestamp(s): 25485 to 26160, 28545 to 30300, 163563 to 165558, 183483 to 184278, 202223 to 202958, 255083 to 256247 (+11 shorter intervals totalling 4440 s) (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Walking or running or bicycling was detected across 17 intervals totalling 11559 s, identified from body-acceleration energy 0.355 g, a 1.7 Hz cadence, a gravity vector 75 deg from the device axis.
+
+Query: "How much of the recording did the user spend resting?"
+Answer: Unable to determine
+Activity/Event: sitting
+Evidence:
+    Timestamp(s): 13020 to 25440 (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: The language model was unavailable (RuntimeError). The most relevant interval retrieved was 13020 to 25440 s, classified sitting.
+
+Query: "Is the evidence consistent with someone who was mostly sedentary?"
+Answer: Yes
+Activity/Event: lying down or sitting
+Evidence:
+    Timestamp(s): 13020 to 25440, 30345 to 46346, 96409 to 125224, 130522 to 157177, 203003 to 214058, 219743 to 241598 (+23 shorter intervals totalling 88306 s) (seconds from start)
+    Sensor Modality: Accelerometer, Gyroscope
+    Sensor Channel(s): All
+Explanation: Lying down or sitting was detected across 29 intervals totalling 205107 s, identified from body-acceleration energy 0.003 g, a gravity vector 31 deg from the device axis, gyroscope energy 0.002 rad/s.
+
