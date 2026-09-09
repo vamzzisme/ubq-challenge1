@@ -1,0 +1,5 @@
+model,test_accuracy,test_macro_f1,size_mb,latency_ms
+RF-Full,0.5267,0.2862,130.5948,56.4119
+RF-Medium,0.4612,0.2513,23.4648,30.2368
+RF-Tiny,0.3947,0.2621,1.578,30.3047
+CNN,0.3241,0.1897,0.3743,1.8035
