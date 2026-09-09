@@ -1,0 +1,519 @@
+#!/usr/bin/env python3
+"""L4 -- interface: map a natural-language question onto the structured timeline.
+
+The brief constrains this layer more tightly than the others: *"the language it
+produces must be tied to evidence that the earlier layers found, not generated
+freely."*  Every field emitted here therefore comes from a `timeline.Interval`
+object.  The question selects which operation to run and which intervals to
+read; it never supplies a number, a timestamp, or a claim of its own.
+
+Question types handled, matching the four tiers:
+
+    identification   what is the user doing (optionally at a time)   Task 1
+    verification     is/was/did the user <activity>                  Task 1
+    duration         how long                                        Task 2
+    count            how many times / how often                      Task 2
+    comparison       more time X or Y                                Task 2
+    temporal         when did X begin / start                        Task 2, 3
+    open_world       anything else -- routed to the SLM              Task 4
+
+Anything the router cannot confidently place goes to the small language model,
+which is given a menu of real intervals and may only cite from it (see `slm.py`).
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from typing import Any
+
+from asqa import config
+from asqa.timeline import Interval, Timeline, cite, evidence_block
+
+# Phrases that name each activity.  Ordered longest-first when matching so that
+# "standing and moving" is not swallowed by "standing".
+ACTIVITY_PHRASES: dict[str, tuple[str, ...]] = {
+    "lying_down": ("lying down", "lie down", "lying", "laying down", "lay down", "lied down"),
+    "sitting": ("sitting", "seated", "sit down", "sits", "sat", "sit"),
+    "standing_in_place": ("standing in place", "standing still", "stood still", "standing in one place"),
+    "standing_and_moving": ("standing and moving", "moving about", "shuffling", "standing while moving"),
+    "walking": ("walking", "walk", "walked", "strolling", "stroll", "on foot"),
+    "running": ("running", "run", "ran", "jogging", "jog", "sprinting", "sprint"),
+    "bicycling": ("bicycling", "cycling", "bicycle", "biking", "bike", "cycle", "pedalling", "pedaling"),
+}
+
+# Loose language that maps onto a group of classes rather than one.  Task 4 asks
+# about behaviour rather than class names ("resting", "strenuous", "a wheeled or
+# pedal-based mode of movement"), but most such phrasings do resolve onto the
+# seven classes.  Resolving them here rather than in the language model keeps the
+# verdict tied to the classifier: a 0.5B model asked to judge "wheeled movement"
+# was measured answering "Pedal-based mode" while citing a *sitting* interval.
+# The model is better used for prose than for verdicts.
+GROUP_PHRASES: dict[str, tuple[str, ...]] = {
+    "resting": ("resting", "rest", "inactive", "idle", "sedentary", "still", "sleeping", "asleep"),
+    "active": (
+        "active", "exercising", "exercise", "strenuous", "vigorous", "exerting",
+        "physical activity", "working out", "energetic",
+    ),
+    "wheeled": ("wheeled", "pedal-based", "pedal based", "pedalling", "pedaling", "two-wheeler", "on wheels"),
+    "standing": ("standing", "stood", "stand"),
+}
+
+GROUP_MEMBERS: dict[str, list[str]] = {
+    "resting": ["lying_down", "sitting"],
+    "active": ["walking", "running", "bicycling"],
+    "wheeled": ["bicycling"],
+    "standing": ["standing_in_place", "standing_and_moving"],
+}
+
+VERIFICATION_STARTS = ("is ", "was ", "did ", "has ", "have ", "were ", "does ", "do ")
+
+
+@dataclass
+class Answer:
+    """One response in the exact shape the brief specifies."""
+
+    answer: str
+    activity_event: str
+    timestamps: str
+    modality: str
+    channels: str
+    explanation: str
+    question_type: str = "unknown"
+    intervals: list[dict[str, float]] | None = None
+
+    def render(self) -> str:
+        return "\n".join(
+            [
+                f"Answer: {self.answer}",
+                f"Activity/Event: {self.activity_event}",
+                "Evidence:",
+                f"    Timestamp(s): {self.timestamps}",
+                f"    Sensor Modality: {self.modality}",
+                f"    Sensor Channel(s): {self.channels}",
+                f"Explanation: {self.explanation}",
+            ]
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "answer": self.answer,
+            "activity_event": self.activity_event,
+            "evidence": {
+                "timestamps": self.timestamps,
+                "modality": self.modality,
+                "channels": self.channels,
+                "intervals": self.intervals or [],
+            },
+            "explanation": self.explanation,
+            "question_type": self.question_type,
+        }
+
+
+def _from(intervals: list[Interval], answer: str, event: str, explanation: str, kind: str) -> Answer:
+    block = evidence_block(intervals)
+    return Answer(
+        answer=answer,
+        activity_event=event,
+        timestamps=block["timestamps"],
+        modality=block["modality"],
+        channels=block["channels"],
+        explanation=explanation,
+        question_type=kind,
+        intervals=[{"start_s": i.start_s, "end_s": i.end_s} for i in intervals],
+    )
+
+
+def _none(explanation: str, kind: str, event: str = "N/A") -> Answer:
+    return Answer("N/A", event, "N/A", "N/A", "N/A", explanation, kind, [])
+
+
+# ── Question parsing ─────────────────────────────────────────────────────────
+
+
+def find_activities(question: str) -> list[str]:
+    """Activities named in the question, in the order they are mentioned."""
+    lower = question.lower()
+    hits: list[tuple[int, str]] = []
+    claimed: list[tuple[int, int]] = []
+
+    ordered = sorted(
+        ((activity, phrase) for activity, phrases in ACTIVITY_PHRASES.items() for phrase in phrases),
+        key=lambda pair: len(pair[1]),
+        reverse=True,
+    )
+    for activity, phrase in ordered:
+        for match in re.finditer(rf"\b{re.escape(phrase)}\b", lower):
+            span = match.span()
+            # A longer phrase already covering this text wins.
+            if any(start <= span[0] < end for start, end in claimed):
+                continue
+            claimed.append(span)
+            if activity not in [a for _, a in hits]:
+                hits.append((span[0], activity))
+    return [activity for _, activity in sorted(hits)]
+
+
+def find_group(question: str) -> str | None:
+    lower = question.lower()
+    for group, phrases in GROUP_PHRASES.items():
+        if any(re.search(rf"\b{re.escape(p)}\b", lower) for p in phrases):
+            return group
+    return None
+
+
+def find_time(question: str) -> float | None:
+    """A time reference in seconds from the start, if the question gives one."""
+    lower = question.lower()
+    # Units must allow the plural: `(?:second|s)\b` never matches "25500 seconds",
+    # because \b cannot sit between the "d" of "second" and the following "s".
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\b", lower)
+    if match:
+        return float(match.group(1))
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)\b", lower)
+    if match:
+        return float(match.group(1)) * 60
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b", lower)
+    if match:
+        return float(match.group(1)) * 3600
+    match = re.search(r"\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b", lower)
+    if match:
+        h, m, s = int(match.group(1)), int(match.group(2)), int(match.group(3) or 0)
+        return float(h * 3600 + m * 60 + s)
+    return None
+
+
+def classify(question: str) -> str:
+    """Which operation the question is asking for."""
+    lower = question.lower().strip()
+    if any(
+        p in lower
+        for p in (
+            "how long",
+            "how much time",
+            "how much of",  # "how much of the afternoon did she spend resting"
+            "total time",
+            "duration",
+            "how many hours",
+            "how many minutes",
+            "how many seconds",
+            "time did the user spend",
+            "time was the user",
+        )
+    ):
+        return "duration"
+    if any(p in lower for p in ("how many times", "how often", "how many bouts", "number of times", "how many separate")):
+        return "count"
+    if any(p in lower for p in ("more time", "longer", "compare", "or ", "most time", "which activity")):
+        if len(find_activities(question)) >= 2 or "most time" in lower or "which activity" in lower:
+            return "comparison"
+    if any(p in lower for p in ("when did", "when was", "at what time", "begin", "began", "start", "onset", "first")):
+        return "temporal"
+    if lower.startswith(VERIFICATION_STARTS) or "whether" in lower:
+        return "verification"
+    if any(p in lower for p in ("what activity", "what is the user", "what was the user", "what are they", "doing")):
+        return "identification"
+    return "open_world"
+
+
+# ── Explanation helpers ──────────────────────────────────────────────────────
+
+
+def _describe_signal(intervals: list[Interval]) -> str:
+    """A short, quantitative phrase drawn from the cited intervals themselves."""
+    if not intervals:
+        return ""
+    longest = max(intervals, key=lambda i: i.duration_s)
+    signal = longest.signal
+    if not signal:
+        return ""
+    parts = []
+    if "body_acc_rms" in signal:
+        parts.append(f"body-acceleration energy {signal['body_acc_rms']:.3f} g")
+    if "cadence_hz" in signal and signal.get("body_acc_rms", 0) > 0.05:
+        parts.append(f"a {signal['cadence_hz']:.1f} Hz cadence")
+    if "gravity_tilt_deg" in signal:
+        parts.append(f"a gravity vector {signal['gravity_tilt_deg']:.0f} deg from the device axis")
+    if "gyro_rms" in signal:
+        parts.append(f"gyroscope energy {signal['gyro_rms']:.3f} rad/s")
+    return ", ".join(parts[:3])
+
+
+def _sampling_note(timeline: Timeline, intervals: list[Interval]) -> str:
+    observed = sum(i.observed_s for i in intervals)
+    spanned = sum(i.duration_s for i in intervals)
+    if spanned <= 0:
+        return ""
+    return (
+        f" The recording samples about {timeline.observed_s / timeline.duration_s * 100:.0f}% of "
+        f"wall-clock time, so this span of {spanned:.0f} s rests on {observed:.0f} s of "
+        f"directly observed sensor data."
+    )
+
+
+def _label(activity: str) -> str:
+    return config.DISPLAY_NAMES.get(activity, activity)
+
+
+# ── The operations ───────────────────────────────────────────────────────────
+
+
+def answer_identification(question: str, timeline: Timeline) -> Answer:
+    time_s = find_time(question)
+    if time_s is not None:
+        window = timeline.at_time(time_s)
+        if window is not None:
+            interval = timeline.interval_at(time_s)
+            intervals = [interval] if interval else []
+            return _from(
+                intervals,
+                _label(window.activity),
+                _label(window.activity),
+                f"The sensor window covering {time_s:.0f} s was classified as "
+                f"{_label(window.activity)} (confidence {window.confidence:.2f}), on "
+                f"{_describe_signal(intervals) or 'the observed signal'}.",
+                "identification",
+            )
+
+        # The instant was not directly sampled -- ExtraSensory records about 15 s
+        # in every 60 -- but it may still fall inside a bout bracketed by windows
+        # on both sides. Answering from the enclosing bout is better supported
+        # than refusing, provided the gap is stated rather than hidden.
+        interval = timeline.interval_at(time_s)
+        if interval is not None:
+            return _from(
+                [interval],
+                _label(interval.activity),
+                _label(interval.activity),
+                f"No window was sampled exactly at {time_s:.0f} s, but that moment lies inside a "
+                f"{_label(interval.activity)} bout running from {interval.start_s:.0f} to "
+                f"{interval.end_s:.0f} s, supported by {interval.n_windows} sampled windows showing "
+                f"{_describe_signal([interval]) or 'a consistent signal'}.",
+                "identification",
+            )
+
+        return _none(
+            f"{time_s:.0f} s falls outside every sampled window and outside every detected "
+            f"activity bout, so no activity can be attributed to that moment.",
+            "identification",
+        )
+
+    dominant = timeline.dominant()
+    if dominant is None:
+        return _none("The recording contains no usable sensor windows.", "identification")
+    intervals = timeline.by_activity(dominant)
+    return _from(
+        intervals,
+        _label(dominant),
+        _label(dominant),
+        f"{_label(dominant).capitalize()} accounts for the greatest share of the recording "
+        f"({timeline.total_duration(dominant) / 60:.0f} min across {len(intervals)} bouts), "
+        f"shown by {_describe_signal(intervals) or 'the observed signal'}.",
+        "identification",
+    )
+
+
+def answer_verification(question: str, timeline: Timeline) -> Answer:
+    activities = find_activities(question)
+    time_s = find_time(question)
+
+    if not activities:
+        group = find_group(question)
+        if group is None:
+            return _none("The question does not name an activity this system recognises.", "verification")
+        activities = GROUP_MEMBERS[group]
+
+    intervals = [i for a in activities for i in timeline.by_activity(a)]
+    if time_s is not None:
+        intervals = [i for i in intervals if i.start_s <= time_s <= i.end_s]
+
+    name = " or ".join(_label(a) for a in activities)
+    where = f" at {time_s:.0f} s" if time_s is not None else ""
+
+    if not intervals:
+        return Answer(
+            "No",
+            name,
+            "N/A",
+            "N/A",
+            "N/A",
+            f"No window in the recording was classified as {name}{where}. "
+            f"The activities detected were: {', '.join(_label(a) for a in timeline.present_activities()) or 'none'}.",
+            "verification",
+            [],
+        )
+
+    total = sum(i.duration_s for i in intervals)
+    return _from(
+        intervals,
+        "Yes",
+        name,
+        f"{name.capitalize()} was detected{where} across {len(intervals)} interval"
+        f"{'s' if len(intervals) > 1 else ''} totalling {total:.0f} s, identified from "
+        f"{_describe_signal(intervals) or 'the observed signal'}.",
+        "verification",
+    )
+
+
+def answer_duration(question: str, timeline: Timeline) -> Answer:
+    activities = find_activities(question)
+    if not activities:
+        group = find_group(question)
+        if group is None:
+            return _none("The question does not name an activity this system recognises.", "duration")
+        activities = GROUP_MEMBERS[group]
+
+    intervals = [i for a in activities for i in timeline.by_activity(a)]
+    name = " and ".join(_label(a) for a in activities)
+    if not intervals:
+        return Answer(
+            "0 seconds",
+            name,
+            "N/A",
+            "N/A",
+            "N/A",
+            f"No window in the recording was classified as {name}.",
+            "duration",
+            [],
+        )
+
+    total = sum(i.duration_s for i in intervals)
+    observed = sum(i.observed_s for i in intervals)
+    return _from(
+        intervals,
+        f"{total:.0f} seconds",
+        name,
+        f"{name.capitalize()} was detected in {len(intervals)} interval"
+        f"{'s' if len(intervals) > 1 else ''} spanning {total:.0f} s in total"
+        f" ({total / 60:.0f} min)."
+        + _sampling_note(timeline, intervals),
+        "duration",
+    )
+
+
+def answer_count(question: str, timeline: Timeline) -> Answer:
+    activities = find_activities(question)
+    if not activities:
+        return _none("The question does not name an activity this system recognises.", "count")
+    activity = activities[0]
+    intervals = timeline.by_activity(activity)
+    name = _label(activity)
+    if not intervals:
+        return Answer("0", name, "N/A", "N/A", "N/A", f"No {name} bout was detected.", "count", [])
+    return _from(
+        intervals,
+        str(len(intervals)),
+        f"{name} bouts",
+        f"{len(intervals)} separate {name} bout{'s' if len(intervals) > 1 else ''} were detected. "
+        f"A bout is a run of consecutive windows of the same activity separated by no more than "
+        f"180 s; the longest lasted {max(i.duration_s for i in intervals):.0f} s.",
+        "count",
+    )
+
+
+def answer_comparison(question: str, timeline: Timeline) -> Answer:
+    activities = find_activities(question)
+    if len(activities) < 2:
+        present = timeline.present_activities()
+        if not present:
+            return _none("The recording contains no usable sensor windows.", "comparison")
+        ranked = sorted(present, key=lambda a: timeline.total_duration(a), reverse=True)
+        winner = ranked[0]
+        intervals = timeline.by_activity(winner)
+        return _from(
+            intervals,
+            _label(winner),
+            ", ".join(_label(a) for a in ranked[:3]),
+            f"{_label(winner).capitalize()} occupies the most time "
+            f"({timeline.total_duration(winner) / 60:.0f} min), ahead of "
+            + ", ".join(f"{_label(a)} ({timeline.total_duration(a) / 60:.0f} min)" for a in ranked[1:3])
+            + ".",
+            "comparison",
+        )
+
+    first, second = activities[0], activities[1]
+    first_total, second_total = timeline.total_duration(first), timeline.total_duration(second)
+    if first_total > second_total:
+        verdict = _label(first)
+    elif second_total > first_total:
+        verdict = _label(second)
+    else:
+        verdict = "Equal"
+
+    intervals = timeline.by_activity(first) + timeline.by_activity(second)
+    return _from(
+        intervals,
+        verdict,
+        f"{_label(first)}, {_label(second)}",
+        f"{_label(first).capitalize()} totals {first_total:.0f} s across {timeline.count(first)} "
+        f"bouts and {_label(second)} totals {second_total:.0f} s across {timeline.count(second)} "
+        f"bouts, so {verdict.lower() if verdict != 'Equal' else 'the two are equal'}"
+        f"{' occupies more of the recording' if verdict != 'Equal' else ''}.",
+        "comparison",
+    )
+
+
+def answer_temporal(question: str, timeline: Timeline) -> Answer:
+    activities = find_activities(question)
+    if not activities:
+        return _none("The question does not name an activity this system recognises.", "temporal")
+    activity = activities[0]
+    name = _label(activity)
+    first = timeline.first(activity)
+    if first is None:
+        return Answer(
+            "No",
+            name,
+            "N/A",
+            "N/A",
+            "N/A",
+            f"No window in the recording was classified as {name}, so it has no onset.",
+            "temporal",
+            [],
+        )
+    return _from(
+        [first],
+        f"Yes, {name} began at {first.start_s:.0f} seconds",
+        f"Onset of {name}",
+        f"The first window classified as {name} begins at {first.start_s:.0f} s and the bout "
+        f"continues to {first.end_s:.0f} s, marked by "
+        f"{_describe_signal([first]) or 'the observed signal'}.",
+        "temporal",
+    )
+
+
+# ── Router ───────────────────────────────────────────────────────────────────
+
+HANDLERS = {
+    "identification": answer_identification,
+    "verification": answer_verification,
+    "duration": answer_duration,
+    "count": answer_count,
+    "comparison": answer_comparison,
+    "temporal": answer_temporal,
+}
+
+
+def answer_question(question: str, timeline: Timeline, use_slm: bool = True) -> Answer:
+    """Answer one question against one timeline, in the brief's output format."""
+    kind = classify(question)
+
+    if kind in HANDLERS:
+        result = HANDLERS[kind](question, timeline)
+        # A deterministic handler that found nothing to say is often an
+        # open-world question wearing a familiar grammar; let the SLM try.
+        if result.answer != "N/A" or not use_slm:
+            return result
+
+    if use_slm:
+        try:
+            from asqa.slm import answer_open_world
+
+            return answer_open_world(question, timeline)
+        except Exception as exc:  # noqa: BLE001 - the SLM is optional at runtime
+            return _none(
+                f"This question falls outside the system's structured operations and the "
+                f"language model could not be used ({type(exc).__name__}: {exc}).",
+                "open_world",
+            )
+    return _none("This question falls outside the system's structured operations.", "open_world")
