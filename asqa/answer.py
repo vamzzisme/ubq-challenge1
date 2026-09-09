@@ -302,13 +302,30 @@ def answer_identification(question: str, timeline: Timeline) -> Answer:
     if dominant is None:
         return _none("The recording contains no usable sensor windows.", "identification")
     intervals = timeline.by_activity(dominant)
+
+    # A single short recording is one classification, not a share of a day.
+    # Phrasing it as "the greatest share of the recording (0 min across 1 bouts)"
+    # is both odd and misleading for the Task 1 single-window case.
+    if len(timeline.windows) == 1:
+        window = timeline.windows[0]
+        return _from(
+            intervals,
+            _label(window.activity),
+            _label(window.activity),
+            f"This {timeline.duration_s:.0f}-second recording was classified as "
+            f"{_label(window.activity)} (confidence {window.confidence:.2f}), on "
+            f"{_describe_signal(intervals) or 'the observed signal'}.",
+            "identification",
+        )
+
     return _from(
         intervals,
         _label(dominant),
         _label(dominant),
         f"{_label(dominant).capitalize()} accounts for the greatest share of the recording "
-        f"({timeline.total_duration(dominant) / 60:.0f} min across {len(intervals)} bouts), "
-        f"shown by {_describe_signal(intervals) or 'the observed signal'}.",
+        f"({timeline.total_duration(dominant) / 60:.0f} min across {len(intervals)} "
+        f"bout{'s' if len(intervals) != 1 else ''}), shown by "
+        f"{_describe_signal(intervals) or 'the observed signal'}.",
         "identification",
     )
 
