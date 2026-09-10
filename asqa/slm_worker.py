@@ -136,6 +136,65 @@ def _extract_json(text: str) -> dict | None:
         return None
 
 
+# ── Choosing, rather than generating ─────────────────────────────────────────
+#
+# Asking a 0.5B model to "reply with a word from this list" was measured staying
+# inside the list 3 times in 10: it echoed the questioner's word in the shape of
+# the vocabulary ("wandering", "kipping", "legging_it"), having learned the
+# snake_case format but not the membership rule.
+#
+# So the model is never asked to *write* a class name. It is shown the classes
+# as lettered options and only one token is read back -- the letter. Scoring the
+# letters against each other cannot produce a word outside the list, because no
+# word is generated at all. The vocabulary stops being an instruction the model
+# may ignore and becomes a property of the decoding.
+
+CHOICES = [
+    ("A", "lying_down", "lying down, in bed, asleep, having a kip or a lie-in"),
+    ("B", "sitting", "sitting, seated, sat down, perched"),
+    ("C", "standing_in_place", "standing still in one spot"),
+    ("D", "standing_and_moving", "standing while shuffling or moving about"),
+    ("E", "walking", "walking, strolling, wandering, ambling, hiking, on foot"),
+    ("F", "running", "running, jogging, sprinting, legging it"),
+    ("G", "bicycling", "cycling, bicycling, pedalling, on a bike or pushbike"),
+    ("H", "__none__", "none of these, or the question is not about one activity"),
+]
+
+CHOOSE_PROMPT = """Which activity is this question about? Reply with one letter only.
+
+""" + "\n".join(f"{letter}. {desc}" for letter, _, desc in CHOICES)
+
+
+def choose(question: str) -> dict:
+    """Pick one class by scoring letters -- never by writing a word."""
+    torch, model, tokenizer = _load()
+    messages = [
+        {"role": "system", "content": CHOOSE_PROMPT},
+        {"role": "user", "content": question},
+    ]
+    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = tokenizer([text], return_tensors="pt").to(model.device)
+
+    with torch.no_grad():
+        logits = model(**inputs).logits[0, -1]
+
+    # Only the eight letters compete; every other token is out of the running.
+    scored = []
+    for letter, activity, _ in CHOICES:
+        ids = {tokenizer.encode(form, add_special_tokens=False)[0] for form in (letter, " " + letter)}
+        scored.append((max(float(logits[i]) for i in ids), letter, activity))
+    scored.sort(reverse=True)
+
+    best, runner_up = scored[0], scored[1]
+    probs = torch.softmax(torch.tensor([s for s, _, _ in scored]), dim=0)
+    return {
+        "activity": None if best[2] == "__none__" else best[2],
+        "letter": best[1],
+        "confidence": round(float(probs[0]), 3),
+        "runner_up": runner_up[2],
+    }
+
+
 def parse(question: str, max_new_tokens: int = 120) -> dict:
     """Turn a question into a structured request. Raises if unusable."""
     torch, model, tokenizer = _load()
@@ -199,7 +258,9 @@ def generate(question: str, menu: str, max_new_tokens: int = 320) -> dict:
 def main() -> int:
     try:
         request = json.loads(sys.stdin.read())
-        if request.get("mode") == "parse":
+        if request.get("mode") == "choose":
+            payload = choose(request["question"])
+        elif request.get("mode") == "parse":
             payload = parse(request["question"], request.get("max_new_tokens", 120))
         else:
             payload = generate(

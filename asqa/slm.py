@@ -93,15 +93,24 @@ def parse_intent(question: str, rules):
 
     from asqa.answer import GROUP_MEMBERS, resolve_activity_word, resolve_group_word
 
+    proposed = payload.get("activities") or []
     activities: list[str] = []
-    for raw in payload.get("activities", []) or []:
+    for raw in proposed:
         name = resolve_activity_word(str(raw))
         if name and name not in activities:
             activities.append(name)
 
+    # The group is a fallback, but only when the model did not try to name an
+    # activity at all. If it proposed words and none of them survived, it was not
+    # tracking the vocabulary on this question, and its group is no more
+    # trustworthy than its activity was -- measured: for "was he having a kip?"
+    # it returned activities=["kipping"], group="wheeled", and "wheeled" is a
+    # real group name, so no amount of validation catches it. Asserting
+    # bicycling there would be confidently wrong; returning nothing lets the
+    # question fall through to an answer that cites intervals and can be checked.
     group = payload.get("group")
     group = resolve_group_word(str(group)) if group else None
-    if not activities and group:
+    if not activities and group and not proposed:
         activities = list(GROUP_MEMBERS[group])
 
     if not activities:
