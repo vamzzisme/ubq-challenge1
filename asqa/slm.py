@@ -43,10 +43,10 @@ MENU_SIZE = 12
 WORKER_TIMEOUT_S = 600
 
 
-def ask_worker(question: str, menu: str, max_new_tokens: int = 320) -> dict:
+def ask_worker(question: str, menu: str = "", max_new_tokens: int = 320, mode: str = "answer") -> dict:
     """Run one generation in an isolated interpreter and return its JSON."""
     request = json.dumps(
-        {"question": question, "menu": menu, "max_new_tokens": max_new_tokens}
+        {"question": question, "menu": menu, "max_new_tokens": max_new_tokens, "mode": mode}
     )
     completed = subprocess.run(
         [sys.executable, "-m", "asqa.slm_worker"],
@@ -66,6 +66,77 @@ def ask_worker(question: str, menu: str, max_new_tokens: int = 320) -> dict:
     if not response.get("ok"):
         raise RuntimeError(response.get("error", "unknown worker failure"))
     return response["payload"]
+
+
+def parse_intent(question: str, rules):
+    """Fill in the activities a question refers to, when the rules could not.
+
+    The model is given the *narrowest useful job*. Measured on this 0.5B model,
+    asking it for the whole intent was unreliable -- it answered
+    "when did she first start to jog?" with operation=identification and an
+    activity of "jogging", a word outside the vocabulary, despite that exact
+    question appearing in its few-shot examples.
+
+    But the rules already read the operation correctly in those same cases:
+    "did ..." is verification, "when did ..." is temporal. What the rules lack is
+    vocabulary -- they do not know "pushbike" or "tiring". So the rules keep the
+    operation and the time window, and the model supplies only the activity
+    slot, validated against a closed list. A word not on the list is discarded,
+    not guessed at.
+    """
+    from asqa.intent import OPERATIONS, Intent
+
+    try:
+        payload = ask_worker(question, mode="parse", max_new_tokens=100)
+    except Exception:  # noqa: BLE001 - the model is optional; the caller falls back
+        return None
+
+    from asqa.answer import GROUP_MEMBERS, find_activities
+
+    activities: list[str] = []
+    for raw in payload.get("activities", []) or []:
+        text = str(raw).strip().lower()
+        name = text.replace(" ", "_").replace("-", "_")
+        if name not in config.ACTIVITY_INDEX:
+            # The model reaches for near-misses -- "jogging" for running,
+            # "cycling" for bicycling -- even when the vocabulary is spelled out
+            # in its prompt. The phrase table the rules already use canonicalises
+            # those, so run the model's word through it rather than discarding a
+            # perfectly clear intent. Anything it cannot resolve is still dropped.
+            resolved = find_activities(text)
+            name = resolved[0] if resolved else name
+        if name in config.ACTIVITY_INDEX and name not in activities:
+            activities.append(name)
+
+    group = payload.get("group")
+    group = str(group).strip().lower() if group else None
+    if group not in GROUP_MEMBERS:
+        group = None
+    if not activities and group:
+        activities = list(GROUP_MEMBERS[group])
+
+    if not activities:
+        return None  # nothing usable; the caller falls back to menu answering
+
+    # The rules read the question's *form* reliably -- "did ..." is verification,
+    # "when did ..." is temporal -- so their operation wins whenever they found
+    # one. The model's operation is used only where the rules gave up entirely,
+    # which happens when a typo defeats the keyword ("how mcuh time ...").
+    operation = rules.operation
+    if operation not in OPERATIONS:
+        proposed = str(payload.get("operation", "")).strip().lower().replace(" ", "_")
+        if proposed not in OPERATIONS:
+            return None
+        operation = proposed
+
+    return Intent(
+        operation=operation,
+        activities=activities,
+        window=rules.window,
+        at_time_s=rules.at_time_s,
+        group=group,
+        source="language-model",
+    )
 
 
 # ── Retrieval ────────────────────────────────────────────────────────────────

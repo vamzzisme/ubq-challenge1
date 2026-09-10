@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from asqa import config
+from asqa.intent import Intent, TimeWindow, clip, find_window
 from asqa.timeline import Interval, Timeline, cite, evidence_block
 
 # Phrases that name each activity.  Ordered longest-first when matching so that
@@ -53,7 +54,8 @@ GROUP_PHRASES: dict[str, tuple[str, ...]] = {
     "resting": ("resting", "rest", "inactive", "idle", "sedentary", "still", "sleeping", "asleep"),
     "active": (
         "active", "exercising", "exercise", "strenuous", "vigorous", "exerting",
-        "physical activity", "working out", "energetic",
+        "physical activity", "working out", "energetic", "tiring", "exhausting",
+        "demanding", "effortful", "workout", "moving around",
     ),
     "wheeled": ("wheeled", "pedal-based", "pedal based", "pedalling", "pedaling", "two-wheeler", "on wheels"),
     "standing": ("standing", "stood", "stand"),
@@ -216,6 +218,36 @@ def classify(question: str) -> str:
     return "open_world"
 
 
+def parse_question(question: str) -> Intent:
+    """Reduce a question to an operation, the classes it names, and a time window."""
+    activities = find_activities(question)
+    group = find_group(question)
+    if not activities and group:
+        activities = list(GROUP_MEMBERS[group])
+    return Intent(
+        operation=classify(question),
+        activities=activities,
+        window=find_window(question),
+        at_time_s=find_time(question),
+        group=group,
+        source="rules",
+    )
+
+
+def _select(timeline: Timeline, activities: list[str], window: TimeWindow | None) -> list[Interval]:
+    """Intervals for these activities, trimmed to the window if there is one."""
+    chosen = [i for a in activities for i in timeline.by_activity(a)]
+    chosen.sort(key=lambda i: i.start_s)
+    return clip(chosen, window, timeline.duration_s)
+
+
+def _window_note(window: TimeWindow | None, timeline: Timeline) -> str:
+    """A clause naming the restriction, so an answer never hides one."""
+    if window is None:
+        return ""
+    return f" {window.resolve(timeline.duration_s).describe()}"
+
+
 # ── Explanation helpers ──────────────────────────────────────────────────────
 
 
@@ -258,8 +290,28 @@ def _label(activity: str) -> str:
 # ── The operations ───────────────────────────────────────────────────────────
 
 
-def answer_identification(question: str, timeline: Timeline) -> Answer:
-    time_s = find_time(question)
+def answer_identification(question: str, timeline: Timeline, intent: Intent | None = None) -> Answer:
+    intent = intent or parse_question(question)
+    if intent.window is not None:
+        present = timeline.present_activities()
+        totals = {a: sum(i.duration_s for i in _select(timeline, [a], intent.window)) for a in present}
+        totals = {a: v for a, v in totals.items() if v > 0}
+        if not totals:
+            return _none(
+                f"No activity was detected{_window_note(intent.window, timeline)}.", "identification"
+            )
+        dominant = max(totals, key=lambda a: totals[a])
+        intervals = _select(timeline, [dominant], intent.window)
+        return _from(
+            intervals, _label(dominant), _label(dominant),
+            f"{_label(dominant).capitalize()} accounts for the greatest share"
+            f"{_window_note(intent.window, timeline)} ({totals[dominant] / 60:.0f} min across "
+            f"{len(intervals)} interval{'s' if len(intervals) != 1 else ''}), shown by "
+            f"{_describe_signal(intervals) or 'the observed signal'}.",
+            "identification",
+        )
+
+    time_s = intent.at_time_s
     if time_s is not None:
         window = timeline.at_time(time_s)
         if window is not None:
@@ -330,41 +382,31 @@ def answer_identification(question: str, timeline: Timeline) -> Answer:
     )
 
 
-def answer_verification(question: str, timeline: Timeline) -> Answer:
-    activities = find_activities(question)
-    time_s = find_time(question)
+def answer_verification(question: str, timeline: Timeline, intent: Intent | None = None) -> Answer:
+    intent = intent or parse_question(question)
+    if not intent.activities:
+        return _none("The question does not name an activity this system recognises.", "verification")
 
-    if not activities:
-        group = find_group(question)
-        if group is None:
-            return _none("The question does not name an activity this system recognises.", "verification")
-        activities = GROUP_MEMBERS[group]
+    intervals = _select(timeline, intent.activities, intent.window)
+    if intent.at_time_s is not None and intent.window is None:
+        intervals = [i for i in intervals if i.start_s <= intent.at_time_s <= i.end_s]
 
-    intervals = [i for a in activities for i in timeline.by_activity(a)]
-    if time_s is not None:
-        intervals = [i for i in intervals if i.start_s <= time_s <= i.end_s]
-
-    name = " or ".join(_label(a) for a in activities)
-    where = f" at {time_s:.0f} s" if time_s is not None else ""
+    name = " or ".join(_label(a) for a in intent.activities)
+    where = f" at {intent.at_time_s:.0f} s" if (intent.at_time_s is not None and intent.window is None) else ""
+    where += _window_note(intent.window, timeline)
 
     if not intervals:
+        detected = ", ".join(_label(a) for a in timeline.present_activities()) or "none"
         return Answer(
-            "No",
-            name,
-            "N/A",
-            "N/A",
-            "N/A",
-            f"No window in the recording was classified as {name}{where}. "
-            f"The activities detected were: {', '.join(_label(a) for a in timeline.present_activities()) or 'none'}.",
-            "verification",
-            [],
+            "No", name, "N/A", "N/A", "N/A",
+            f"No window was classified as {name}{where}. "
+            f"The activities detected in the recording were: {detected}.",
+            "verification", [],
         )
 
     total = sum(i.duration_s for i in intervals)
     return _from(
-        intervals,
-        "Yes",
-        name,
+        intervals, "Yes", name,
         f"{name.capitalize()} was detected{where} across {len(intervals)} interval"
         f"{'s' if len(intervals) > 1 else ''} totalling {total:.0f} s, identified from "
         f"{_describe_signal(intervals) or 'the observed signal'}.",
@@ -372,84 +414,76 @@ def answer_verification(question: str, timeline: Timeline) -> Answer:
     )
 
 
-def answer_duration(question: str, timeline: Timeline) -> Answer:
-    activities = find_activities(question)
-    if not activities:
-        group = find_group(question)
-        if group is None:
-            return _none("The question does not name an activity this system recognises.", "duration")
-        activities = GROUP_MEMBERS[group]
+def answer_duration(question: str, timeline: Timeline, intent: Intent | None = None) -> Answer:
+    intent = intent or parse_question(question)
+    if not intent.activities:
+        return _none("The question does not name an activity this system recognises.", "duration")
 
-    intervals = [i for a in activities for i in timeline.by_activity(a)]
-    name = " and ".join(_label(a) for a in activities)
+    intervals = _select(timeline, intent.activities, intent.window)
+    name = " and ".join(_label(a) for a in intent.activities)
+    where = _window_note(intent.window, timeline)
+
     if not intervals:
         return Answer(
-            "0 seconds",
-            name,
-            "N/A",
-            "N/A",
-            "N/A",
-            f"No window in the recording was classified as {name}.",
-            "duration",
-            [],
+            "0 seconds", name, "N/A", "N/A", "N/A",
+            f"No window was classified as {name}{where}.", "duration", [],
         )
 
     total = sum(i.duration_s for i in intervals)
-    observed = sum(i.observed_s for i in intervals)
     return _from(
-        intervals,
-        f"{total:.0f} seconds",
-        name,
-        f"{name.capitalize()} was detected in {len(intervals)} interval"
+        intervals, f"{total:.0f} seconds", name,
+        f"{name.capitalize()} was detected{where} in {len(intervals)} interval"
         f"{'s' if len(intervals) > 1 else ''} spanning {total:.0f} s in total"
-        f" ({total / 60:.0f} min)."
-        + _sampling_note(timeline, intervals),
+        f" ({total / 60:.0f} min)." + _sampling_note(timeline, intervals),
         "duration",
     )
 
 
-def answer_count(question: str, timeline: Timeline) -> Answer:
-    activities = find_activities(question)
-    if not activities:
+def answer_count(question: str, timeline: Timeline, intent: Intent | None = None) -> Answer:
+    intent = intent or parse_question(question)
+    if not intent.activities:
         return _none("The question does not name an activity this system recognises.", "count")
-    activity = activities[0]
-    intervals = timeline.by_activity(activity)
+
+    activity = intent.activities[0]
+    intervals = _select(timeline, [activity], intent.window)
     name = _label(activity)
+    where = _window_note(intent.window, timeline)
+
     if not intervals:
-        return Answer("0", name, "N/A", "N/A", "N/A", f"No {name} bout was detected.", "count", [])
+        return Answer("0", name, "N/A", "N/A", "N/A", f"No {name} bout was detected{where}.", "count", [])
     return _from(
-        intervals,
-        str(len(intervals)),
-        f"{name} bouts",
-        f"{len(intervals)} separate {name} bout{'s' if len(intervals) > 1 else ''} were detected. "
+        intervals, str(len(intervals)), f"{name} bouts",
+        f"{len(intervals)} separate {name} bout{'s' if len(intervals) > 1 else ''} were detected{where}. "
         f"A bout is a run of consecutive windows of the same activity separated by no more than "
         f"180 s; the longest lasted {max(i.duration_s for i in intervals):.0f} s.",
         "count",
     )
 
 
-def answer_comparison(question: str, timeline: Timeline) -> Answer:
-    activities = find_activities(question)
-    if len(activities) < 2:
+def answer_comparison(question: str, timeline: Timeline, intent: Intent | None = None) -> Answer:
+    intent = intent or parse_question(question)
+    where = _window_note(intent.window, timeline)
+
+    def total(activity: str) -> float:
+        return sum(i.duration_s for i in _select(timeline, [activity], intent.window))
+
+    if len(intent.activities) < 2:
         present = timeline.present_activities()
         if not present:
             return _none("The recording contains no usable sensor windows.", "comparison")
-        ranked = sorted(present, key=lambda a: timeline.total_duration(a), reverse=True)
+        ranked = sorted(present, key=total, reverse=True)
         winner = ranked[0]
-        intervals = timeline.by_activity(winner)
+        intervals = _select(timeline, [winner], intent.window)
         return _from(
-            intervals,
-            _label(winner),
-            ", ".join(_label(a) for a in ranked[:3]),
-            f"{_label(winner).capitalize()} occupies the most time "
-            f"({timeline.total_duration(winner) / 60:.0f} min), ahead of "
-            + ", ".join(f"{_label(a)} ({timeline.total_duration(a) / 60:.0f} min)" for a in ranked[1:3])
-            + ".",
+            intervals, _label(winner), ", ".join(_label(a) for a in ranked[:3]),
+            f"{_label(winner).capitalize()} occupies the most time{where} "
+            f"({total(winner) / 60:.0f} min), ahead of "
+            + ", ".join(f"{_label(a)} ({total(a) / 60:.0f} min)" for a in ranked[1:3]) + ".",
             "comparison",
         )
 
-    first, second = activities[0], activities[1]
-    first_total, second_total = timeline.total_duration(first), timeline.total_duration(second)
+    first, second = intent.activities[0], intent.activities[1]
+    first_total, second_total = total(first), total(second)
     if first_total > second_total:
         verdict = _label(first)
     elif second_total > first_total:
@@ -457,43 +491,38 @@ def answer_comparison(question: str, timeline: Timeline) -> Answer:
     else:
         verdict = "Equal"
 
-    intervals = timeline.by_activity(first) + timeline.by_activity(second)
+    intervals = _select(timeline, [first, second], intent.window)
     return _from(
-        intervals,
-        verdict,
-        f"{_label(first)}, {_label(second)}",
-        f"{_label(first).capitalize()} totals {first_total:.0f} s across {timeline.count(first)} "
-        f"bouts and {_label(second)} totals {second_total:.0f} s across {timeline.count(second)} "
-        f"bouts, so {verdict.lower() if verdict != 'Equal' else 'the two are equal'}"
-        f"{' occupies more of the recording' if verdict != 'Equal' else ''}.",
+        intervals, verdict, f"{_label(first)}, {_label(second)}",
+        f"{_label(first).capitalize()} totals {first_total:.0f} s and {_label(second)} totals "
+        f"{second_total:.0f} s{where}, so "
+        f"{verdict.lower() + ' occupies more of the recording' if verdict != 'Equal' else 'the two are equal'}.",
         "comparison",
     )
 
 
-def answer_temporal(question: str, timeline: Timeline) -> Answer:
-    activities = find_activities(question)
-    if not activities:
+def answer_temporal(question: str, timeline: Timeline, intent: Intent | None = None) -> Answer:
+    intent = intent or parse_question(question)
+    if not intent.activities:
         return _none("The question does not name an activity this system recognises.", "temporal")
-    activity = activities[0]
+
+    activity = intent.activities[0]
     name = _label(activity)
-    first = timeline.first(activity)
-    if first is None:
+    intervals = _select(timeline, [activity], intent.window)
+    where = _window_note(intent.window, timeline)
+
+    if not intervals:
         return Answer(
-            "No",
-            name,
-            "N/A",
-            "N/A",
-            "N/A",
-            f"No window in the recording was classified as {name}, so it has no onset.",
-            "temporal",
-            [],
+            "No", name, "N/A", "N/A", "N/A",
+            f"No window was classified as {name}{where}, so it has no onset there.",
+            "temporal", [],
         )
+
+    first = intervals[0]
     return _from(
-        [first],
-        f"Yes, {name} began at {first.start_s:.0f} seconds",
-        f"Onset of {name}",
-        f"The first window classified as {name} begins at {first.start_s:.0f} s and the bout "
-        f"continues to {first.end_s:.0f} s, marked by "
+        [first], f"Yes, {name} began at {first.start_s:.0f} seconds", f"Onset of {name}",
+        f"The first window classified as {name}{where} begins at {first.start_s:.0f} s and the "
+        f"bout continues to {first.end_s:.0f} s, marked by "
         f"{_describe_signal([first]) or 'the observed signal'}.",
         "temporal",
     )
@@ -512,25 +541,52 @@ HANDLERS = {
 
 
 def answer_question(question: str, timeline: Timeline, use_slm: bool = True) -> Answer:
-    """Answer one question against one timeline, in the brief's output format."""
-    kind = classify(question)
+    """Answer one question against one timeline, in the brief's output format.
 
-    if kind in HANDLERS:
-        result = HANDLERS[kind](question, timeline)
-        # A deterministic handler that found nothing to say is often an
-        # open-world question wearing a familiar grammar; let the SLM try.
+    Three stages, cheapest first:
+
+    1. **Rules.** A keyword router reduces the question to an `Intent` and the
+       matching handler computes the answer. This covers the great majority of
+       questions and costs well under a millisecond.
+    2. **The model as a parser.** If the rules cannot place the question -- an
+       unfamiliar synonym, a typo, an unusual phrasing -- the language model is
+       asked what the question is *asking for*, not what the answer is. Its
+       reply is validated against a closed vocabulary and handed to the same
+       handler, so the answer is still computed from the timeline.
+    3. **The model as an answerer.** Only if parsing also fails does the model
+       answer directly, choosing from a menu of real intervals (see `slm.py`).
+
+    Putting the parser ahead of the answerer matters: a 0.5B model is reliable
+    at "which operation is this?" and unreliable at "what did this person do?".
+    """
+    intent = parse_question(question)
+
+    if intent.operation in HANDLERS:
+        result = HANDLERS[intent.operation](question, timeline, intent)
         if result.answer != "N/A" or not use_slm:
             return result
 
-    if use_slm:
-        try:
-            from asqa.slm import answer_open_world
+    if not use_slm:
+        return _none("This question falls outside the system's structured operations.", "open_world")
 
-            return answer_open_world(question, timeline)
-        except Exception as exc:  # noqa: BLE001 - the SLM is optional at runtime
-            return _none(
-                f"This question falls outside the system's structured operations and the "
-                f"language model could not be used ({type(exc).__name__}: {exc}).",
-                "open_world",
-            )
-    return _none("This question falls outside the system's structured operations.", "open_world")
+    try:
+        from asqa.slm import answer_open_world, parse_intent
+
+        parsed = parse_intent(question, intent)
+        if parsed is not None and parsed.operation in HANDLERS:
+            result = HANDLERS[parsed.operation](question, timeline, parsed)
+            if result.answer != "N/A":
+                result.explanation += (
+                    " (The wording was unfamiliar, so a language model mapped it to "
+                    f"{', '.join(_label(a) for a in parsed.activities)}; the answer itself "
+                    "is computed from the sensor timeline as usual.)"
+                )
+                return result
+
+        return answer_open_world(question, timeline)
+    except Exception as exc:  # noqa: BLE001 - the SLM is optional at runtime
+        return _none(
+            f"This question falls outside the system's structured operations and the "
+            f"language model could not be used ({type(exc).__name__}: {exc}).",
+            "open_world",
+        )

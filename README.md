@@ -121,8 +121,16 @@ user kept doing the same thing.
 and separates *observed* time from *spanned* time. ExtraSensory observes ~15 s in
 every 60, so a bout spanning 300 s rests on ~75 s of signal.
 
-**L4 — [`asqa/answer.py`](asqa/answer.py), [`asqa/slm.py`](asqa/slm.py).** Routes
-a question to one of six operations. Every timestamp, modality and channel it
+**L4 — [`asqa/answer.py`](asqa/answer.py), [`asqa/intent.py`](asqa/intent.py),
+[`asqa/slm.py`](asqa/slm.py).** Reduces a question to an `Intent` — an
+operation, the classes it names, and a time window (`after 84 hours`,
+`in the first 2 hours`, `between 10 and 20 hours`) — then routes it to one of
+six operations. Three stages, cheapest first: keyword rules (~0.2 ms, the great
+majority of questions); if those cannot place the wording, the language model
+is asked *what the question is asking for*, never what the answer is, and its
+reply is validated against a closed vocabulary before the same handler computes
+the answer from the timeline; only if that also fails does the model answer
+directly from a menu of real intervals. Every timestamp, modality and channel it
 prints is copied from an interval the earlier layers produced. For open-world
 questions the language model picks from a numbered menu of real intervals; an id
 outside that menu is discarded rather than rendered.

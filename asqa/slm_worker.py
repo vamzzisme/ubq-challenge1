@@ -27,6 +27,54 @@ import sys
 
 MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
 
+# ── Parse mode ───────────────────────────────────────────────────────────────
+#
+# The model's better job. Rather than asking a 0.5B model what the person did,
+# ask it only what the *question* is asking for, and let the timeline answer.
+# It emits an operation and class names from a closed vocabulary -- never a
+# number, never a timestamp -- so a misparse produces the wrong operation
+# (visible, checkable) rather than a fabricated interval.
+
+PARSE_PROMPT = """You identify which physical activities a question is about.
+
+Reply with ONE JSON object and nothing else:
+{"operation": "...", "activities": [...], "group": "..." or null}
+
+operation may ONLY be one of:
+  identification  - what was the person doing
+  verification    - did/was the person doing it, yes or no
+  duration        - how long, how much time
+  count           - how many times, how often
+  comparison      - more time doing X or Y
+  temporal        - when did it start, begin, first happen
+
+activities may ONLY contain these exact words:
+  lying_down, sitting, standing_in_place, standing_and_moving, walking, running, bicycling
+
+group may ONLY be one of these, or null:
+  resting   - the question means lying down or sitting
+  active    - the question means exertion: tiring, strenuous, exercise, workout
+  wheeled   - the question means a bicycle: pedalling, cycling, pushbike
+  standing  - the question means standing
+
+Use group when the question describes a kind of behaviour; use activities when it
+names one directly. Map informal words and typos onto the list: jog and sprint are
+running, pushbike and cycling are bicycling, kip and lie-in are lying_down.
+Never invent a word that is not on the lists."""
+
+PARSE_EXAMPLES = [
+    ("is user doing anything tiring?",
+     '{"operation": "verification", "activities": [], "group": "active"}'),
+    ("how mcuh time did he spend lyin down",
+     '{"operation": "duration", "activities": ["lying_down"], "group": null}'),
+    ("when did she first start to jog",
+     '{"operation": "temporal", "activities": ["running"], "group": null}'),
+    ("did the bloke ever get on his pushbike",
+     '{"operation": "verification", "activities": ["bicycling"], "group": null}'),
+    ("how offen did he go for a wander",
+     '{"operation": "count", "activities": ["walking"], "group": null}'),
+]
+
 SYSTEM_PROMPT = """You are a sensor analyst. You are given numbered intervals from a wearable recording, each with measured accelerometer and gyroscope statistics.
 
 Answer the user's question using ONLY these intervals. You must not invent times.
@@ -62,7 +110,7 @@ RETRY_SUFFIX = (
 )
 
 
-def generate(question: str, menu: str, max_new_tokens: int = 320) -> dict:
+def _load():
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -75,6 +123,43 @@ def generate(question: str, menu: str, max_new_tokens: int = 320) -> dict:
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
     model = AutoModelForCausalLM.from_pretrained(MODEL_ID, dtype=dtype).to(device).eval()
+    return torch, model, tokenizer
+
+
+def _extract_json(text: str) -> dict | None:
+    match = re.search(r"\{.*?\}", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group(), strict=False)
+    except json.JSONDecodeError:
+        return None
+
+
+def parse(question: str, max_new_tokens: int = 120) -> dict:
+    """Turn a question into a structured request. Raises if unusable."""
+    torch, model, tokenizer = _load()
+    messages = [{"role": "system", "content": PARSE_PROMPT}]
+    for user, assistant in PARSE_EXAMPLES:
+        messages += [{"role": "user", "content": user}, {"role": "assistant", "content": assistant}]
+    messages.append({"role": "user", "content": question})
+
+    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = tokenizer([text], return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        generated = model.generate(
+            **inputs, max_new_tokens=max_new_tokens, do_sample=False,
+            repetition_penalty=1.15, pad_token_id=tokenizer.eos_token_id,
+        )
+    completion = tokenizer.decode(generated[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+    payload = _extract_json(completion)
+    if payload is None:
+        raise ValueError(f"parser returned no JSON object: {completion[:200]!r}")
+    return payload
+
+
+def generate(question: str, menu: str, max_new_tokens: int = 320) -> dict:
+    torch, model, tokenizer = _load()
 
     def run(prompt: str) -> str:
         messages = [
@@ -114,9 +199,12 @@ def generate(question: str, menu: str, max_new_tokens: int = 320) -> dict:
 def main() -> int:
     try:
         request = json.loads(sys.stdin.read())
-        payload = generate(
-            request["question"], request["menu"], request.get("max_new_tokens", 320)
-        )
+        if request.get("mode") == "parse":
+            payload = parse(request["question"], request.get("max_new_tokens", 120))
+        else:
+            payload = generate(
+                request["question"], request["menu"], request.get("max_new_tokens", 320)
+            )
         sys.stdout.write(json.dumps({"ok": True, "payload": payload}))
     except Exception as exc:  # noqa: BLE001 - reported to the parent, never raised
         sys.stdout.write(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}))
