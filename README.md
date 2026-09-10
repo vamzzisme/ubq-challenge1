@@ -130,7 +130,18 @@ majority of questions); if those cannot place the wording, the language model
 is asked *what the question is asking for*, never what the answer is, and its
 reply is validated against a closed vocabulary before the same handler computes
 the answer from the timeline; only if that also fails does the model answer
-directly from a menu of real intervals. Every timestamp, modality and channel it
+directly from a menu of real intervals.
+
+The model is **Qwen2.5-3B-Instruct**, chosen by measurement rather than default.
+On ten deliberately unusual phrasings (`tools/parse_strategies.py`) a 0.5B model
+answered 1/10 and stayed inside the closed vocabulary only 3/10 — it echoed the
+questioner's word in the vocabulary's shape (`wandering`, `kipping`,
+`legging_it`), having learnt the format but not the membership rule. Forcing
+valid output by scoring lettered options guaranteed membership and still scored
+1/10, picking one option five times. The 3B model answers 9/10 and stays in
+vocabulary 10/10 without coaxing. It costs 22.6 s and 10.0 GB against 11.0 s and
+2.6 GB, paid only when the rules cannot place a question. Override with
+`ASQA_SLM_MODEL`. Every timestamp, modality and channel it
 prints is copied from an interval the earlier layers produced. For open-world
 questions the language model picks from a numbered menu of real intervals; an id
 outside that menu is discarded rather than rendered.

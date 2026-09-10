@@ -22,10 +22,23 @@ Response:  {"ok": bool, "payload": {...}} or {"ok": false, "error": str}
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 
-MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
+# Overridable so a larger model can be measured without editing code:
+#     ASQA_SLM_MODEL=Qwen/Qwen2.5-3B-Instruct python tools/parse_strategies.py
+# Measured on tools/parse_strategies.py, ten deliberately unusual phrasings:
+#
+#     0.5B   1/10 correct, stayed inside the vocabulary  3/10
+#     3B     9/10 correct, stayed inside the vocabulary 10/10
+#
+# The 0.5B model does not follow the closed-vocabulary instruction -- it echoes
+# the questioner's word in the vocabulary's shape ("wandering", "kipping"), and
+# constraining the decoding to fix that costs accuracy rather than buying it.
+# The 3B model simply obeys. It costs 22.6s and 10.0 GB against 11.0s and 2.6 GB,
+# paid only when the rules cannot place a question, which is rare.
+MODEL_ID = os.environ.get("ASQA_SLM_MODEL", "Qwen/Qwen2.5-3B-Instruct")
 
 # ── Parse mode ───────────────────────────────────────────────────────────────
 #
