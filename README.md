@@ -176,16 +176,22 @@ reported numbers is exactly reproducible.
 python -m asqa.dashboard --open        # http://127.0.0.1:8000
 ```
 
-Pick one of the preprocessed recordings on the left and ask questions in plain
-language. Clicking any answer highlights, on a timeline of the whole recording,
+By default the picker offers only the **held-out recordings** in
+`data/5 new users/` — five users that appear in no model's training set, so what
+you see is how the system behaves on a genuinely new person. Pick one and ask
+questions in plain language. Clicking any answer highlights, on a timeline of the whole recording,
 exactly the intervals that answer cited — hovering a segment shows its measured
 energy, cadence, tilt and rotation.
 
 Two details worth knowing:
 
-- **The model is chosen for you.** Each user is answered by the fold that held
-  them out, shown as a badge ("model: fold 3 · held out"), so a recording is
-  never questioned with a model that trained on it.
+- **The model is chosen for you.** Never-seen users are answered by fold 3 (all
+  five folds are equally valid for them; fold 3 scored highest on this corpus).
+  Training users, if served with `--training-users`, are answered by the fold
+  that held them out. Either way a recording is never questioned with a model
+  that trained on it.
+- **First analysis of a recording takes 20-45 s** (a week of raw signal at
+  25 Hz); it is cached to disk after that.
 - **Deep links work.** `?user=0A986513&q=How long was the user walking?` opens
   straight into that view, which is convenient for a demo.
 

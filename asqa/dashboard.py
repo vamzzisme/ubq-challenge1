@@ -52,14 +52,41 @@ ACTIVITY_COLOURS = {
 }
 
 
+# Recordings the dashboard offers by default: the held-out evaluation corpus,
+# whose users appear in no fold's training set. Showing training users here
+# would invite questioning a recording the model has already memorised, which
+# tells you nothing about how the system behaves on a new person.
+DEFAULT_CORPUS = config.DATA_DIR / "5 new users"
+
+# Which fold's model answers a never-seen user. No fold trained on them, so all
+# five are equally valid; fold 3 scored highest on this corpus (0.693).
+DEFAULT_FOLD = 3
+
+
 class Backend:
     """Model and timeline caches shared by every request."""
 
-    def __init__(self) -> None:
+    def __init__(self, corpus: Path | None = None, fold: int = DEFAULT_FOLD) -> None:
         self.folds = load_folds()
+        self.corpus = corpus if corpus is not None else DEFAULT_CORPUS
+        self.default_fold = fold
         self._pipelines: dict[int, Pipeline] = {}
         self._timelines: dict[str, Timeline] = {}
         self._lock = threading.Lock()
+
+    @property
+    def uses_corpus(self) -> bool:
+        """True when serving a held-out directory rather than the training cache."""
+        return (self.corpus / "acc").is_dir()
+
+    def corpus_users(self) -> list[str]:
+        return sorted(p.name for p in (self.corpus / "acc").iterdir() if p.is_dir())
+
+    def recording_path(self, user_id: str) -> Path | str:
+        """Where to read this user's raw signal from."""
+        if self.uses_corpus and (self.corpus / "acc" / user_id).is_dir():
+            return self.corpus / "acc" / user_id
+        return user_id  # a preprocessed user id, resolved from the cache
 
     # ── model selection ──
 
@@ -74,7 +101,8 @@ class Backend:
         assigned = self.folds["assignment"].get(user_id)
         if assigned is not None:
             return int(assigned)
-        return 0  # not in the corpus: no model trained on them, so any fold is safe
+        # Never seen in training at all: every fold is safe, so use the default.
+        return self.default_fold
 
     def pipeline(self, fold: int) -> Pipeline:
         with self._lock:
@@ -95,7 +123,8 @@ class Backend:
         if path.exists():
             timeline = load_timeline(path)
         else:
-            timeline = self.pipeline(self.fold_for(user_id)).run(user_id)
+            source = self.recording_path(user_id)
+            timeline = self.pipeline(self.fold_for(user_id)).run(source)
             timeline.save(path)
         self._timelines[user_id] = timeline
         return timeline
@@ -103,26 +132,55 @@ class Backend:
     # ── API payloads ──
 
     def users(self) -> list[dict[str, Any]]:
-        """Every preprocessed user, with enough detail to choose between them."""
+        """The selectable recordings.
+
+        When a held-out corpus is present these are the only users offered, and
+        every one of them is unseen by every model. Training users are
+        deliberately absent: a recording the model memorised would answer well
+        and mean nothing.
+        """
         from asqa.preprocess import cached_users
 
         counts = self.folds.get("class_counts", {})
+        ids = self.corpus_users() if self.uses_corpus else cached_users()
+
         rows = []
-        for user_id in cached_users():
-            distribution = counts.get(user_id, {})
-            total = sum(distribution.values()) or 1
-            dominant = max(distribution, key=lambda k: distribution[k]) if distribution else "unknown"
+        for user_id in ids:
+            trained_on = user_id in self.folds["assignment"]
+            cached = user_id in self._timelines or self._cache_path(user_id).exists()
+
+            # A built timeline gives real numbers; otherwise fall back to the
+            # label distribution (training users) or the raw file count.
+            if cached:
+                timeline = self.timeline(user_id)
+                windows = len(timeline.windows)
+                totals: dict[str, float] = {}
+                for interval in timeline.intervals:
+                    totals[interval.activity] = totals.get(interval.activity, 0.0) + interval.duration_s
+                dominant = max(totals, key=lambda k: totals[k]) if totals else "unknown"
+                duration = timeline.duration_s
+            else:
+                distribution = counts.get(user_id, {})
+                windows = sum(distribution.values()) or self._raw_window_estimate(user_id)
+                dominant = max(distribution, key=lambda k: distribution[k]) if distribution else None
+                duration = 0.0
+
             rows.append({
                 "id": user_id,
                 "short": user_id[:8],
                 "fold": self.fold_for(user_id),
-                "in_corpus": user_id in self.folds["assignment"],
-                "windows": total,
+                "trained_on": trained_on,
+                "windows": windows,
+                "duration_s": duration,
                 "dominant": dominant,
-                "distribution": distribution,
-                "cached": user_id in self._timelines or self._cache_path(user_id).exists(),
+                "cached": cached,
             })
         return rows
+
+    def _raw_window_estimate(self, user_id: str) -> int:
+        """Number of raw captures, for a user not yet analysed."""
+        directory = self.corpus / "acc" / user_id
+        return len(list(directory.glob("*.dat"))) if directory.is_dir() else 0
 
     def session(self, user_id: str) -> dict[str, Any]:
         """Timeline summary and intervals. Per-window detail is deliberately omitted.
@@ -145,7 +203,7 @@ class Backend:
         payload.update({
             "user": user_id,
             "fold": self.fold_for(user_id),
-            "held_out": user_id in self.folds["assignment"],
+            "trained_on": user_id in self.folds["assignment"],
             "totals": totals,
             "colours": ACTIVITY_COLOURS,
             "display_names": config.DISPLAY_NAMES,
@@ -242,6 +300,18 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--open", action="store_true", help="Open a browser once the server is up.")
+    parser.add_argument(
+        "--corpus", type=Path, default=DEFAULT_CORPUS,
+        help="Directory of held-out recordings (expects acc/<user>/ and gyro/<user>/).",
+    )
+    parser.add_argument(
+        "--training-users", action="store_true",
+        help="Serve the preprocessed training users instead of the held-out corpus.",
+    )
+    parser.add_argument(
+        "--fold", type=int, default=DEFAULT_FOLD,
+        help=f"Which fold's model answers never-seen users (default {DEFAULT_FOLD}).",
+    )
     args = parser.parse_args()
 
     models = sorted(config.MODEL_DIR.glob("recogniser_fold*.joblib"))
@@ -253,10 +323,19 @@ def main() -> int:
         )
         return 1
 
-    Handler.backend = Backend()
+    corpus = None if args.training_users else args.corpus
+    backend = Backend(corpus=corpus, fold=args.fold)
+    Handler.backend = backend
+
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     url = f"http://{args.host}:{args.port}"
     print(f"Ask the Sensors dashboard -> {url}")
+    if backend.uses_corpus:
+        n = len(backend.corpus_users())
+        print(f"  serving {n} held-out recordings from {backend.corpus}")
+        print(f"  none of them appears in any model's training set; answered by fold {args.fold}")
+    else:
+        print(f"  serving preprocessed training users (--training-users)")
     print(f"  {len(models)} fold models available, loaded on demand")
     print("  Ctrl-C to stop")
 

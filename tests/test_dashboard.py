@@ -60,9 +60,14 @@ def test_ui_file_exists_and_is_self_contained() -> None:
 
 
 def test_fold_selection_never_leaks(backend: Backend) -> None:
-    """A user must never be questioned with a model that trained on them."""
+    """A user must never be questioned with a model that trained on them.
+
+    For the held-out corpus this is trivially satisfied (no fold trained on any
+    of them); the check still matters whenever training users are served with
+    --training-users.
+    """
     for row in backend.users():
-        if not row["in_corpus"]:
+        if not row["trained_on"]:
             continue
         fold = backend.fold_for(row["id"])
         split = backend.folds["splits"][str(fold)]
@@ -72,11 +77,21 @@ def test_fold_selection_never_leaks(backend: Backend) -> None:
         assert row["id"] not in split["train"], f"{row['id'][:8]} leaks into fold {fold} training"
 
 
+def test_only_unseen_users_are_offered(backend: Backend) -> None:
+    """With a held-out corpus present, no training user may appear in the picker."""
+    if not backend.uses_corpus:
+        return
+    offered = backend.users()
+    leaked = [r["short"] for r in offered if r["trained_on"]]
+    assert not leaked, f"training users offered in the dashboard: {leaked}"
+    assert offered, "held-out corpus is empty"
+
+
 def test_users_payload_shape(backend: Backend) -> None:
     users = backend.users()
     assert users, "no preprocessed users found"
     for row in users:
-        assert {"id", "short", "fold", "windows", "dominant", "distribution"} <= set(row)
+        assert {"id", "short", "fold", "windows", "dominant", "trained_on", "cached"} <= set(row)
         assert row["short"] == row["id"][:8]
         assert 0 <= row["fold"] < backend.folds["n_folds"]
 

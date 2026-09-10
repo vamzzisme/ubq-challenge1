@@ -164,12 +164,13 @@
 <header>
   <h1>Ask the Sensors</h1>
   <span class="sub">Grounded activity question answering &mdash; timestamps are seconds from the start of the recording</span>
+  <span class="sub" style="margin-left:auto" id="corpus-note"></span>
 </header>
 
 <div class="layout">
   <aside>
     <div class="head">
-      <h2>Recordings</h2>
+      <h2>Held-out recordings</h2>
       <input id="search" placeholder="Filter users…" autocomplete="off">
     </div>
     <div id="users"></div>
@@ -181,7 +182,8 @@
     <div id="chat">
       <div class="empty">
         <strong>Pick a recording on the left</strong>
-        Then ask anything about it. Click any answer to see the exact signal it cites.
+        These recordings were never seen by any model during training.<br>
+        Ask anything about one, then click an answer to see the exact signal it cites.
       </div>
     </div>
 
@@ -230,20 +232,25 @@ const esc = (t) => { const d = document.createElement("div"); d.textContent = t;
 async function loadUsers() {
   const r = await fetch("/api/users").then(r => r.json());
   state.users = r.users || [];
+  const unseen = state.users.filter(u => !u.trained_on).length;
+  $("corpus-note").textContent =
+    unseen === state.users.length
+      ? `${unseen} recordings, none used in training`
+      : `${state.users.length} recordings`;
   renderUsers();
 }
 
 function renderUsers() {
   const term = $("search").value.trim().toLowerCase();
-  const shown = state.users.filter(u => !term || u.id.toLowerCase().includes(term) || u.dominant.includes(term));
+  const shown = state.users.filter(u => !term
+    || u.id.toLowerCase().includes(term) || (u.dominant || "").includes(term));
   $("users").innerHTML = shown.map(u => `
     <div class="user ${state.user === u.id ? "active" : ""}" data-id="${u.id}">
       <div class="id">${u.short}</div>
       <div class="meta">
-        <span>fold ${u.fold}</span>
-        <span>${u.windows.toLocaleString()} win</span>
-        <span>mostly ${pretty(u.dominant)}</span>
-        ${u.cached ? "<span>· ready</span>" : ""}
+        <span>${u.windows.toLocaleString()} ${u.cached ? "windows" : "captures"}</span>
+        ${u.dominant ? `<span>mostly ${pretty(u.dominant)}</span>` : ""}
+        ${u.cached ? "<span>· analysed</span>" : "<span>· not yet analysed</span>"}
       </div>
     </div>`).join("") || `<div style="padding:10px;color:var(--ink-3);font-size:12px">No match.</div>`;
   document.querySelectorAll(".user").forEach(el =>
@@ -257,7 +264,7 @@ async function selectUser(id) {
   renderUsers();
   $("chat").innerHTML = "";
   $("evidence").hidden = true;
-  setBusy(true, "Analysing recording — resampling, classifying and decoding…");
+  setBusy(true, "Analysing recording — resampling to 25 Hz, classifying and decoding. First time takes up to a minute; cached after that.");
 
   try {
     const s = await fetch("/api/session", {
@@ -283,7 +290,7 @@ function renderStatus(s) {
   const sampled = Math.round(s.observed_s / s.duration_s * 100);
   $("status").innerHTML = `
     <span><b style="font-family:var(--mono)">${s.user.slice(0,8)}</b></span>
-    <span class="badge">model: fold ${s.fold}${s.held_out ? " · held out" : ""}</span>
+    <span class="badge">${s.trained_on ? `model: fold ${s.fold} · held out` : `model: fold ${s.fold} · never trained on this user`}</span>
     <span>${fmtDur(s.duration_s)} · ${s.window_count.toLocaleString()} windows · ${sampled}% sampled</span>
     ${s.used_context_model ? "" : '<span class="badge warn">single-window model</span>'}
     <span style="color:var(--ink-3)">${totals.slice(0,3).map(([a,t]) => `${pretty(a)} ${fmtDur(t.seconds)}`).join(" · ")}</span>`;
