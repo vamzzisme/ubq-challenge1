@@ -134,6 +134,47 @@ def test_model_words_are_canonicalised_or_dropped() -> None:
     assert find_activities("gardening") == []
 
 
+def test_model_morphology_is_tolerated() -> None:
+    """The model emits variants of its own vocabulary; those are not nonsense.
+
+    Measured: asked about "did the user wander after 84h?" the 0.5B model
+    returned activities=["wandering"] and group="activity". Both were correct in
+    substance and both were being discarded, so a right answer became "N/A".
+    """
+    from asqa.answer import resolve_activity_word, resolve_group_word
+
+    assert resolve_activity_word("wandering") == "walking"
+    assert resolve_activity_word("jogging") == "running"
+    assert resolve_activity_word("pedalling") == "bicycling"
+    assert resolve_group_word("activity") == "active"
+    assert resolve_group_word("activities") == "active"
+    assert resolve_group_word("restful") == "resting"
+
+
+def test_tolerance_still_rejects_nonsense() -> None:
+    """Tolerance must not become a licence to accept anything."""
+    from asqa.answer import resolve_activity_word, resolve_group_word
+
+    for word in ("gardening", "swimming", "teleporting", ""):
+        assert resolve_activity_word(word) is None, word
+    for word in ("nonsense", "purple", ""):
+        assert resolve_group_word(word) is None, word
+
+
+def test_wander_needs_no_model() -> None:
+    """A real walking synonym belongs in the rules, not in the model's job."""
+    intent = parse_question("did the user wander after 84h?")
+    assert intent.operation == "verification"
+    assert intent.activities == ["walking"]
+    assert intent.window is not None and intent.window.start_s == 84 * HOUR
+
+
+def test_compact_hour_suffix() -> None:
+    """"84h" must parse exactly as "84 hours" does."""
+    assert find_window("after 84h?").start_s == 84 * HOUR
+    assert find_window("after 90m?") is None or find_window("after 90 minutes").start_s == 5400
+
+
 def test_invalid_operation_is_rejected() -> None:
     from asqa.intent import from_payload
 

@@ -38,7 +38,11 @@ ACTIVITY_PHRASES: dict[str, tuple[str, ...]] = {
     "sitting": ("sitting", "seated", "sit down", "sits", "sat", "sit"),
     "standing_in_place": ("standing in place", "standing still", "stood still", "standing in one place"),
     "standing_and_moving": ("standing and moving", "moving about", "shuffling", "standing while moving"),
-    "walking": ("walking", "walk", "walked", "strolling", "stroll", "on foot"),
+    "walking": (
+        "walking", "walk", "walked", "strolling", "stroll", "on foot",
+        "wandering", "wander", "wandered", "ambling", "amble", "roaming", "roam",
+        "hiking", "hike", "pacing", "trekking", "on the move by foot",
+    ),
     "running": ("running", "run", "ran", "jogging", "jog", "sprinting", "sprint"),
     "bicycling": ("bicycling", "cycling", "bicycle", "biking", "bike", "cycle", "pedalling", "pedaling"),
 }
@@ -154,6 +158,84 @@ def find_activities(question: str) -> list[str]:
             if activity not in [a for _, a in hits]:
                 hits.append((span[0], activity))
     return [activity for _, activity in sorted(hits)]
+
+
+def _stems(word: str) -> list[str]:
+    """The word and its plausible stems, longest first."""
+    forms = [word]
+    for suffix in ("ing", "ed", "es", "s"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 4:
+            stem = word[: -len(suffix)]
+            forms.append(stem)
+            if suffix == "ing" and len(stem) >= 4:
+                forms.append(stem + "e")  # amble -> ambling
+    return forms
+
+
+def _shared_prefix(left: str, right: str) -> str:
+    out = []
+    for a, b in zip(left, right):
+        if a != b:
+            break
+        out.append(a)
+    return "".join(out)
+
+
+def resolve_activity_word(word: str) -> str | None:
+    """Map one word onto a class, tolerating the forms a model actually emits.
+
+    Only ever applied to the language model's output, never to the user's
+    question -- the strict phrase matcher stays strict for the rules, because a
+    loose match there would misread questions the rules currently get right.
+
+    The model reaches for morphological variants of the vocabulary it was given:
+    "wandering" for walk, "jogging" for run. Discarding those threw away parses
+    that were semantically correct, so the word and its stems are matched
+    against the phrase table, then against phrase prefixes.
+    """
+    word = word.strip().lower()
+    if word.replace(" ", "_").replace("-", "_") in config.ACTIVITY_INDEX:
+        return word.replace(" ", "_").replace("-", "_")
+
+    for form in _stems(word):
+        if hits := find_activities(form):
+            return hits[0]
+
+    # Last resort: a stem that prefixes a known phrase ("wander" -> "wandering").
+    for form in _stems(word):
+        if len(form) < 4:
+            continue
+        for activity, phrases in ACTIVITY_PHRASES.items():
+            if any(phrase.startswith(form) or form.startswith(phrase) for phrase in phrases):
+                return activity
+    return None
+
+
+def resolve_group_word(word: str) -> str | None:
+    """Map one word onto a behaviour group, tolerating near-misses.
+
+    The model returns "activity" where the vocabulary says "active", and
+    "rest"/"restful" for resting. These are the same intent, so match on stems
+    and prefixes rather than requiring the exact token.
+    """
+    word = word.strip().lower()
+    if word in GROUP_MEMBERS:
+        return word
+
+    for form in _stems(word):
+        if len(form) < 3:
+            continue
+        for group in GROUP_MEMBERS:
+            if group.startswith(form) or form.startswith(group):
+                return group
+            # "activity" and "active" share a stem but neither prefixes the
+            # other, so compare on the shared opening instead.
+            if len(_shared_prefix(form, group)) >= 5:
+                return group
+        for group, phrases in GROUP_PHRASES.items():
+            if any(p.startswith(form) or form.startswith(p) for p in phrases):
+                return group
+    return None
 
 
 def find_group(question: str) -> str | None:

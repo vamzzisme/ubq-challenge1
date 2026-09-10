@@ -91,27 +91,16 @@ def parse_intent(question: str, rules):
     except Exception:  # noqa: BLE001 - the model is optional; the caller falls back
         return None
 
-    from asqa.answer import GROUP_MEMBERS, find_activities
+    from asqa.answer import GROUP_MEMBERS, resolve_activity_word, resolve_group_word
 
     activities: list[str] = []
     for raw in payload.get("activities", []) or []:
-        text = str(raw).strip().lower()
-        name = text.replace(" ", "_").replace("-", "_")
-        if name not in config.ACTIVITY_INDEX:
-            # The model reaches for near-misses -- "jogging" for running,
-            # "cycling" for bicycling -- even when the vocabulary is spelled out
-            # in its prompt. The phrase table the rules already use canonicalises
-            # those, so run the model's word through it rather than discarding a
-            # perfectly clear intent. Anything it cannot resolve is still dropped.
-            resolved = find_activities(text)
-            name = resolved[0] if resolved else name
-        if name in config.ACTIVITY_INDEX and name not in activities:
+        name = resolve_activity_word(str(raw))
+        if name and name not in activities:
             activities.append(name)
 
     group = payload.get("group")
-    group = str(group).strip().lower() if group else None
-    if group not in GROUP_MEMBERS:
-        group = None
+    group = resolve_group_word(str(group)) if group else None
     if not activities and group:
         activities = list(GROUP_MEMBERS[group])
 
