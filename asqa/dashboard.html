@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask the Sensors</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #fcfcfb;
+    --panel: #ffffff;
+    --line: #e4e2dc;
+    --line-strong: #cfcdc5;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8880;
+    --accent: #2a78d6;
+    --accent-soft: #eaf2fd;
+    --radius: 10px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--surface); color: var(--ink);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  header {
+    padding: 12px 20px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 14px; background: var(--panel);
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+  header .sub { color: var(--ink-3); font-size: 12px; }
+
+  .layout { flex: 1; display: grid; grid-template-columns: 268px 1fr; min-height: 0; }
+
+  /* ── user picker ─────────────────────────────────────────── */
+  aside {
+    border-right: 1px solid var(--line); background: var(--panel);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  aside .head { padding: 12px 14px 8px; }
+  aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+             color: var(--ink-3); margin: 0 0 8px; font-weight: 600; }
+  #search {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--line-strong);
+    border-radius: 7px; font-size: 13px; font-family: inherit; background: var(--surface);
+  }
+  #search:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  #users { overflow-y: auto; padding: 4px 8px 14px; flex: 1; }
+  .user {
+    padding: 8px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 2px;
+    border: 1px solid transparent;
+  }
+  .user:hover { background: var(--surface); }
+  .user.active { background: var(--accent-soft); border-color: #bcd8f8; }
+  .user .id { font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .user .meta { font-size: 11px; color: var(--ink-3); margin-top: 2px;
+                display: flex; gap: 8px; flex-wrap: wrap; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; vertical-align: baseline; }
+
+  /* ── main ────────────────────────────────────────────────── */
+  main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+
+  #status {
+    padding: 9px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+    font-size: 12.5px; color: var(--ink-2); display: flex; align-items: center;
+    gap: 12px; flex-wrap: wrap; min-height: 40px;
+  }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    background: var(--accent-soft); color: #1c5cab; font-weight: 600;
+  }
+  .badge.warn { background: #fdf0e8; color: #a8431a; }
+
+  #chat { flex: 1; overflow-y: auto; padding: 22px 20px 8px; min-height: 0; }
+  .empty { color: var(--ink-3); text-align: center; margin-top: 14vh; font-size: 13px; }
+  .empty strong { display: block; color: var(--ink-2); font-size: 15px; margin-bottom: 6px; }
+
+  .msg { margin-bottom: 16px; max-width: 780px; }
+  .msg.q { margin-left: auto; }
+  .msg.q .bubble {
+    background: var(--accent); color: #fff; padding: 9px 14px;
+    border-radius: 14px 14px 3px 14px; display: inline-block; font-size: 13.5px;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden; cursor: pointer;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  .card:hover { border-color: var(--line-strong); }
+  .card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .card .answer {
+    padding: 11px 15px; border-bottom: 1px solid var(--line);
+    font-size: 15px; font-weight: 620;
+  }
+  .card .answer .kind {
+    float: right; font-size: 10.5px; font-weight: 600; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.05em; padding-top: 4px;
+  }
+  .fields { padding: 10px 15px 12px; font-size: 12.5px; }
+  .field { display: flex; gap: 8px; margin-bottom: 5px; }
+  .field .k { color: var(--ink-3); min-width: 118px; flex-shrink: 0; }
+  .field .v { color: var(--ink); }
+  .field .v.mono { font-family: var(--mono); font-size: 11.5px; word-break: break-word; }
+  .evidence { margin: 7px 0 5px; padding-left: 10px; border-left: 2px solid var(--line); }
+  .explain { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line);
+             color: var(--ink-2); font-size: 12.5px; }
+  .hint { font-size: 11px; color: var(--ink-3); padding: 0 15px 10px; }
+
+  /* ── ribbon ──────────────────────────────────────────────── */
+  #evidence { border-top: 1px solid var(--line); background: var(--panel); padding: 10px 20px 12px; }
+  #evidence .row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
+  #evidence h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+                 color: var(--ink-3); margin: 0; font-weight: 600; }
+  #cite { font-size: 11.5px; color: var(--ink-2); }
+  #ribbon {
+    position: relative; height: 40px; border-radius: 6px; overflow: hidden;
+    background: #f2f1ed; border: 1px solid var(--line);
+  }
+  #ribbon .seg { position: absolute; top: 0; bottom: 0; transition: opacity .15s; }
+  #ribbon.filtered .seg { opacity: 0.17; }
+  #ribbon.filtered .seg.cited { opacity: 1; box-shadow: 0 0 0 1.5px rgba(11,11,11,.5) inset; }
+  #ticks { position: relative; height: 15px; font-size: 10px; color: var(--ink-3); margin-top: 3px; }
+  #ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  #legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 11px; color: var(--ink-2); }
+  #legend span { display: flex; align-items: center; gap: 5px; }
+
+  #tip {
+    position: fixed; pointer-events: none; z-index: 20; display: none;
+    background: #16150f; color: #fff; padding: 7px 10px; border-radius: 7px;
+    font-size: 11.5px; line-height: 1.5; max-width: 300px;
+  }
+  #tip b { font-weight: 620; }
+  #tip .sig { font-family: var(--mono); font-size: 10.5px; color: #d6d4c8; margin-top: 3px; }
+
+  /* ── composer ────────────────────────────────────────────── */
+  #composer { border-top: 1px solid var(--line); background: var(--panel); padding: 11px 20px 14px; }
+  #chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 9px; }
+  .chip {
+    font-size: 11.5px; padding: 4px 10px; border-radius: 20px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2);
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .composer-row { display: flex; gap: 9px; align-items: center; }
+  #q {
+    flex: 1; padding: 10px 13px; border: 1px solid var(--line-strong);
+    border-radius: 9px; font-size: 13.5px; font-family: inherit; background: var(--surface);
+  }
+  #q:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  #q:disabled { background: #f2f1ed; color: var(--ink-3); }
+  button.send {
+    padding: 10px 18px; border-radius: 9px; border: 0; background: var(--accent);
+    color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  button.send:disabled { background: #b9b7ae; cursor: default; }
+  .slm { font-size: 11.5px; color: var(--ink-2); display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .err { color: #a8431a; font-size: 12.5px; padding: 8px 12px; background: #fdf0e8; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Ask the Sensors</h1>
+  <span class="sub">Grounded activity question answering &mdash; timestamps are seconds from the start of the recording</span>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="head">
+      <h2>Recordings</h2>
+      <input id="search" placeholder="Filter users…" autocomplete="off">
+    </div>
+    <div id="users"></div>
+  </aside>
+
+  <main>
+    <div id="status"><span style="color:var(--ink-3)">Select a recording to begin.</span></div>
+
+    <div id="chat">
+      <div class="empty">
+        <strong>Pick a recording on the left</strong>
+        Then ask anything about it. Click any answer to see the exact signal it cites.
+      </div>
+    </div>
+
+    <div id="evidence" hidden>
+      <div class="row">
+        <h3>Evidence timeline</h3>
+        <span id="cite">Click an answer to highlight the intervals it cites</span>
+      </div>
+      <div id="ribbon"></div>
+      <div id="ticks"></div>
+      <div id="legend"></div>
+    </div>
+
+    <div id="composer">
+      <div id="chips"></div>
+      <div class="composer-row">
+        <input id="q" placeholder="Select a recording first…" disabled autocomplete="off">
+        <label class="slm"><input type="checkbox" id="slm"> language model</label>
+        <button class="send" id="send" disabled>Ask</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="tip"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { users: [], user: null, session: null, busy: false, selected: null };
+
+const CHIPS = [
+  "What activity is the user performing?",
+  "How long was the user walking?",
+  "How many times did the user walk?",
+  "Did the user spend more time walking or sitting?",
+  "When did the user begin walking?",
+  "Did the user lie down for a prolonged period?",
+  "Was the user doing anything strenuous?",
+];
+
+const fmtDur = (s) => s >= 3600 ? `${(s/3600).toFixed(1)} h` : s >= 60 ? `${Math.round(s/60)} min` : `${Math.round(s)} s`;
+const pretty = (a) => (state.session?.display_names?.[a]) || a.replace(/_/g, " ");
+const esc = (t) => { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; };
+
+// ── users ───────────────────────────────────────────────────
+async function loadUsers() {
+  const r = await fetch("/api/users").then(r => r.json());
+  state.users = r.users || [];
+  renderUsers();
+}
+
+function renderUsers() {
+  const term = $("search").value.trim().toLowerCase();
+  const shown = state.users.filter(u => !term || u.id.toLowerCase().includes(term) || u.dominant.includes(term));
+  $("users").innerHTML = shown.map(u => `
+    <div class="user ${state.user === u.id ? "active" : ""}" data-id="${u.id}">
+      <div class="id">${u.short}</div>
+      <div class="meta">
+        <span>fold ${u.fold}</span>
+        <span>${u.windows.toLocaleString()} win</span>
+        <span>mostly ${pretty(u.dominant)}</span>
+        ${u.cached ? "<span>· ready</span>" : ""}
+      </div>
+    </div>`).join("") || `<div style="padding:10px;color:var(--ink-3);font-size:12px">No match.</div>`;
+  document.querySelectorAll(".user").forEach(el =>
+    el.onclick = () => selectUser(el.dataset.id));
+}
+
+// ── session ─────────────────────────────────────────────────
+async function selectUser(id) {
+  if (state.busy) return;
+  state.user = id; state.selected = null;
+  renderUsers();
+  $("chat").innerHTML = "";
+  $("evidence").hidden = true;
+  setBusy(true, "Analysing recording — resampling, classifying and decoding…");
+
+  try {
+    const s = await fetch("/api/session", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ user: id })
+    }).then(r => r.json());
+    if (s.error) throw new Error(s.error);
+    state.session = s;
+    renderStatus(s);
+    renderRibbon(s);
+    $("evidence").hidden = false;
+    $("chat").innerHTML = `<div class="empty"><strong>${id.slice(0,8)} ready</strong>
+      ${s.interval_count} activity intervals over ${fmtDur(s.duration_s)}. Ask a question below.</div>`;
+  } catch (e) {
+    $("status").innerHTML = `<span class="err">${esc(e.message)}</span>`;
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderStatus(s) {
+  const totals = Object.entries(s.totals).sort((a,b) => b[1].seconds - a[1].seconds);
+  const sampled = Math.round(s.observed_s / s.duration_s * 100);
+  $("status").innerHTML = `
+    <span><b style="font-family:var(--mono)">${s.user.slice(0,8)}</b></span>
+    <span class="badge">model: fold ${s.fold}${s.held_out ? " · held out" : ""}</span>
+    <span>${fmtDur(s.duration_s)} · ${s.window_count.toLocaleString()} windows · ${sampled}% sampled</span>
+    ${s.used_context_model ? "" : '<span class="badge warn">single-window model</span>'}
+    <span style="color:var(--ink-3)">${totals.slice(0,3).map(([a,t]) => `${pretty(a)} ${fmtDur(t.seconds)}`).join(" · ")}</span>`;
+}
+
+// ── ribbon ──────────────────────────────────────────────────
+function renderRibbon(s) {
+  const total = s.duration_s || 1;
+  $("ribbon").className = "";
+  $("ribbon").innerHTML = s.intervals.map((iv, i) => {
+    const left = (iv.start_s / total) * 100, width = Math.max((iv.duration_s / total) * 100, 0.12);
+    return `<div class="seg" data-i="${i}" style="left:${left}%;width:${width}%;
+      background:${s.colours[iv.activity] || "#999"}"></div>`;
+  }).join("");
+
+  document.querySelectorAll("#ribbon .seg").forEach(el => {
+    const iv = s.intervals[+el.dataset.i];
+    el.onmousemove = (ev) => showTip(ev, iv);
+    el.onmouseleave = hideTip;
+  });
+
+  // Time axis, so a position on the ribbon can be read as a timestamp.
+  const steps = 6;
+  $("ticks").innerHTML = Array.from({length: steps + 1}, (_, i) => {
+    const t = (total * i) / steps;
+    return `<span style="left:${(i / steps) * 100}%">${fmtDur(t)}</span>`;
+  }).join("");
+
+  // A legend is always present: identity never rests on colour alone.
+  const present = [...new Set(s.intervals.map(i => i.activity))];
+  $("legend").innerHTML = present.map(a =>
+    `<span><i class="dot" style="background:${s.colours[a]}"></i>${pretty(a)}</span>`).join("");
+}
+
+function showTip(ev, iv) {
+  const sig = iv.signal || {};
+  $("tip").innerHTML = `<b>${pretty(iv.activity)}</b> · ${fmtDur(iv.duration_s)}<br>
+    ${Math.round(iv.start_s)}–${Math.round(iv.end_s)} s · ${iv.n_windows} windows · conf ${iv.mean_confidence.toFixed(2)}
+    <div class="sig">energy ${(sig.body_acc_rms ?? 0).toFixed(4)} g · cadence ${(sig.cadence_hz ?? 0).toFixed(1)} Hz<br>
+    tilt ${Math.round(sig.gravity_tilt_deg ?? 0)}° · rotation ${(sig.gyro_rms ?? 0).toFixed(3)} rad/s</div>`;
+  const t = $("tip");
+  t.style.display = "block";
+  t.style.left = Math.min(ev.clientX + 14, window.innerWidth - 320) + "px";
+  t.style.top = (ev.clientY - t.offsetHeight - 12) + "px";
+}
+const hideTip = () => { $("tip").style.display = "none"; };
+
+// Highlight exactly the intervals an answer cited — this is the grounding made visible.
+function highlight(cited, card) {
+  document.querySelectorAll(".card").forEach(c => c.classList.remove("selected"));
+  const ribbon = $("ribbon");
+  if (!cited || !cited.length) {
+    ribbon.className = "";
+    $("cite").textContent = "This answer cites no interval (a negative answer has no evidence to show).";
+    return;
+  }
+  card.classList.add("selected");
+  ribbon.className = "filtered";
+  document.querySelectorAll("#ribbon .seg").forEach(el => {
+    const iv = state.session.intervals[+el.dataset.i];
+    const hit = cited.some(c => iv.start_s < c.end_s && iv.end_s > c.start_s);
+    el.classList.toggle("cited", hit);
+  });
+  const span = cited.reduce((a, c) => a + (c.end_s - c.start_s), 0);
+  $("cite").innerHTML = `<b>${cited.length}</b> cited interval${cited.length > 1 ? "s" : ""} · ${fmtDur(span)} total`;
+}
+
+// ── asking ──────────────────────────────────────────────────
+function setBusy(on, msg) {
+  state.busy = on;
+  $("send").disabled = on || !state.user;
+  $("q").disabled = on || !state.user;
+  $("q").placeholder = state.user ? "Ask about this recording…" : "Select a recording first…";
+  if (msg) $("status").innerHTML = `<span style="color:var(--ink-2)">${esc(msg)}</span>`;
+}
+
+async function ask(question) {
+  if (!state.user || state.busy || !question.trim()) return;
+  const chat = $("chat");
+  if (chat.querySelector(".empty")) chat.innerHTML = "";
+
+  chat.insertAdjacentHTML("beforeend", `<div class="msg q"><span class="bubble">${esc(question)}</span></div>`);
+  const useSlm = $("slm").checked;
+  const pending = document.createElement("div");
+  pending.className = "msg";
+  pending.innerHTML = `<div style="color:var(--ink-3);font-size:12.5px">${
+    useSlm ? "Thinking — the language model runs in its own process, this takes a few seconds…" : "Reading the timeline…"}</div>`;
+  chat.appendChild(pending);
+  chat.scrollTop = chat.scrollHeight;
+
+  $("q").value = "";
+  setBusy(true);
+  try {
+    const a = await fetch("/api/ask", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ user: state.user, question, use_slm: useSlm })
+    }).then(r => r.json());
+    pending.remove();
+    if (a.error) throw new Error(a.error);
+    renderAnswer(chat, a);
+  } catch (e) {
+    pending.innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  } finally {
+    setBusy(false);
+    renderStatus(state.session);
+    chat.scrollTop = chat.scrollHeight;
+    $("q").focus();
+  }
+}
+
+function renderAnswer(chat, a) {
+  const ev = a.evidence, cited = ev.intervals || [];
+  const div = document.createElement("div");
+  div.className = "msg";
+  div.innerHTML = `
+    <div class="card">
+      <div class="answer"><span class="kind">${a.question_type.replace(/_/g, " ")}</span>${esc(a.answer)}</div>
+      <div class="fields">
+        <div class="field"><span class="k">Activity/Event</span><span class="v">${esc(a.activity_event)}</span></div>
+        <div class="evidence">
+          <div class="field"><span class="k">Timestamp(s)</span><span class="v mono">${esc(ev.timestamps)}</span></div>
+          <div class="field"><span class="k">Sensor Modality</span><span class="v">${esc(ev.modality)}</span></div>
+          <div class="field"><span class="k">Sensor Channel(s)</span><span class="v">${esc(ev.channels)}</span></div>
+        </div>
+        <div class="explain">${esc(a.explanation)}</div>
+      </div>
+      <div class="hint">${cited.length ? `Click to highlight ${cited.length} cited interval${cited.length > 1 ? "s" : ""} below` : "No interval cited"} · answered in ${a.elapsed_ms} ms</div>
+    </div>`;
+  chat.appendChild(div);
+  const card = div.querySelector(".card");
+  card.onclick = () => highlight(cited, card);
+  highlight(cited, card);   // show the evidence for the newest answer straight away
+}
+
+// ── wiring ──────────────────────────────────────────────────
+$("chips").innerHTML = CHIPS.map(c => `<span class="chip">${c}</span>`).join("");
+document.querySelectorAll(".chip").forEach(el => el.onclick = () => ask(el.textContent));
+$("send").onclick = () => ask($("q").value);
+$("q").onkeydown = (e) => { if (e.key === "Enter") ask($("q").value); };
+$("search").oninput = renderUsers;
+
+// Deep links: ?user=<id-or-prefix>&q=<question> opens straight into a view.
+// Useful for a demo (hand someone the exact screen you meant) and for driving
+// the UI from a script.
+async function boot() {
+  await loadUsers();
+  const params = new URLSearchParams(location.search);
+  const wanted = params.get("user");
+  if (!wanted) return;
+  const match = state.users.find(u => u.id === wanted || u.id.startsWith(wanted));
+  if (!match) return;
+  await selectUser(match.id);
+  const q = params.get("q");
+  if (q) await ask(q);
+}
+boot();
+</script>
+</body>
+</html>

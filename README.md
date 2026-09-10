@@ -170,6 +170,29 @@ cache. Everything downstream reads that cache.
 Fold assignment is committed (`outputs/folds_w15.json`) so the split behind the
 reported numbers is exactly reproducible.
 
+## Explore it interactively
+
+```bash
+python -m asqa.dashboard --open        # http://127.0.0.1:8000
+```
+
+Pick one of the preprocessed recordings on the left and ask questions in plain
+language. Clicking any answer highlights, on a timeline of the whole recording,
+exactly the intervals that answer cited — hovering a segment shows its measured
+energy, cadence, tilt and rotation.
+
+Two details worth knowing:
+
+- **The model is chosen for you.** Each user is answered by the fold that held
+  them out, shown as a badge ("model: fold 3 · held out"), so a recording is
+  never questioned with a model that trained on it.
+- **Deep links work.** `?user=0A986513&q=How long was the user walking?` opens
+  straight into that view, which is convenient for a demo.
+
+The dashboard adds no dependency (stdlib `http.server`) and contains no
+answering logic of its own: it calls the same `answer_question()` the CLI does,
+and `tests/test_dashboard.py` asserts the two agree exactly.
+
 ## Answering questions about a recording
 
 ```bash
@@ -189,6 +212,7 @@ file (the Task 1 single-window case), or a preprocessed user id. Useful flags:
 python -m tests.test_preprocess   # clock-true resampling; catches the 2.000 -> 2.300 Hz error
 python -m tests.test_context      # no cross-recording bleed, no context across dropouts
 python -m tests.test_answer       # question parsing and the required output contract
+python -m tests.test_dashboard    # dashboard API contract; asserts it matches the CLI
 ```
 
 ## Repository layout
@@ -196,6 +220,7 @@ python -m tests.test_answer       # question parsing and the required output con
 ```
 asqa/          the system, one module per layer
 run.py         the runnable entry point
+tools/         which_fold.py — which model is safe for a given user
 tests/         regression tests and an all-tier question set
 outputs/       models, timelines, evaluation JSON, figures (regenerable)
 data/          local data only; never committed
