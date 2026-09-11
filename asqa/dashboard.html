@@ -35,7 +35,6 @@
 
   .layout { flex: 1; display: grid; grid-template-columns: 268px 1fr; min-height: 0; }
 
-  /* ── user picker ─────────────────────────────────────────── */
   aside {
     border-right: 1px solid var(--line); background: var(--panel);
     display: flex; flex-direction: column; min-height: 0;
@@ -60,7 +59,6 @@
                 display: flex; gap: 8px; flex-wrap: wrap; }
   .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; vertical-align: baseline; }
 
-  /* ── main ────────────────────────────────────────────────── */
   main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 
   #status {
@@ -109,7 +107,6 @@
              color: var(--ink-2); font-size: 12.5px; }
   .hint { font-size: 11px; color: var(--ink-3); padding: 0 15px 10px; }
 
-  /* ── ribbon ──────────────────────────────────────────────── */
   #evidence { border-top: 1px solid var(--line); background: var(--panel); padding: 10px 20px 12px; }
   #evidence .row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
   #evidence h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
@@ -135,7 +132,6 @@
   #tip b { font-weight: 620; }
   #tip .sig { font-family: var(--mono); font-size: 10.5px; color: #d6d4c8; margin-top: 3px; }
 
-  /* ── composer ────────────────────────────────────────────── */
   #composer { border-top: 1px solid var(--line); background: var(--panel); padding: 11px 20px 14px; }
   #chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 9px; }
   .chip {
@@ -228,7 +224,6 @@ const fmtDur = (s) => s >= 3600 ? `${(s/3600).toFixed(1)} h` : s >= 60 ? `${Math
 const pretty = (a) => (state.session?.display_names?.[a]) || a.replace(/_/g, " ");
 const esc = (t) => { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; };
 
-// ── users ───────────────────────────────────────────────────
 async function loadUsers() {
   const r = await fetch("/api/users").then(r => r.json());
   state.users = r.users || [];
@@ -257,14 +252,13 @@ function renderUsers() {
     el.onclick = () => selectUser(el.dataset.id));
 }
 
-// ── session ─────────────────────────────────────────────────
 async function selectUser(id) {
   if (state.busy) return;
   state.user = id; state.selected = null;
   renderUsers();
   $("chat").innerHTML = "";
   $("evidence").hidden = true;
-  setBusy(true, "Analysing recording — resampling to 25 Hz, classifying and decoding. First time takes up to a minute; cached after that.");
+  setBusy(true, "Analysing recording  -  resampling to 25 Hz, classifying and decoding. First time takes up to a minute; cached after that.");
 
   try {
     const s = await fetch("/api/session", {
@@ -296,7 +290,6 @@ function renderStatus(s) {
     <span style="color:var(--ink-3)">${totals.slice(0,3).map(([a,t]) => `${pretty(a)} ${fmtDur(t.seconds)}`).join(" · ")}</span>`;
 }
 
-// ── ribbon ──────────────────────────────────────────────────
 function renderRibbon(s) {
   const total = s.duration_s || 1;
   $("ribbon").className = "";
@@ -312,14 +305,12 @@ function renderRibbon(s) {
     el.onmouseleave = hideTip;
   });
 
-  // Time axis, so a position on the ribbon can be read as a timestamp.
   const steps = 6;
   $("ticks").innerHTML = Array.from({length: steps + 1}, (_, i) => {
     const t = (total * i) / steps;
     return `<span style="left:${(i / steps) * 100}%">${fmtDur(t)}</span>`;
   }).join("");
 
-  // A legend is always present: identity never rests on colour alone.
   const present = [...new Set(s.intervals.map(i => i.activity))];
   $("legend").innerHTML = present.map(a =>
     `<span><i class="dot" style="background:${s.colours[a]}"></i>${pretty(a)}</span>`).join("");
@@ -328,7 +319,7 @@ function renderRibbon(s) {
 function showTip(ev, iv) {
   const sig = iv.signal || {};
   $("tip").innerHTML = `<b>${pretty(iv.activity)}</b> · ${fmtDur(iv.duration_s)}<br>
-    ${Math.round(iv.start_s)}–${Math.round(iv.end_s)} s · ${iv.n_windows} windows · conf ${iv.mean_confidence.toFixed(2)}
+    ${Math.round(iv.start_s)}-${Math.round(iv.end_s)} s · ${iv.n_windows} windows · conf ${iv.mean_confidence.toFixed(2)}
     <div class="sig">energy ${(sig.body_acc_rms ?? 0).toFixed(4)} g · cadence ${(sig.cadence_hz ?? 0).toFixed(1)} Hz<br>
     tilt ${Math.round(sig.gravity_tilt_deg ?? 0)}° · rotation ${(sig.gyro_rms ?? 0).toFixed(3)} rad/s</div>`;
   const t = $("tip");
@@ -338,7 +329,6 @@ function showTip(ev, iv) {
 }
 const hideTip = () => { $("tip").style.display = "none"; };
 
-// Highlight exactly the intervals an answer cited — this is the grounding made visible.
 function highlight(cited, card) {
   document.querySelectorAll(".card").forEach(c => c.classList.remove("selected"));
   const ribbon = $("ribbon");
@@ -358,7 +348,6 @@ function highlight(cited, card) {
   $("cite").innerHTML = `<b>${cited.length}</b> cited interval${cited.length > 1 ? "s" : ""} · ${fmtDur(span)} total`;
 }
 
-// ── asking ──────────────────────────────────────────────────
 function setBusy(on, msg) {
   state.busy = on;
   $("send").disabled = on || !state.user;
@@ -377,7 +366,7 @@ async function ask(question) {
   const pending = document.createElement("div");
   pending.className = "msg";
   pending.innerHTML = `<div style="color:var(--ink-3);font-size:12.5px">${
-    useSlm ? "Thinking — the language model runs in its own process, this takes a few seconds…" : "Reading the timeline…"}</div>`;
+    useSlm ? "Thinking  -  the language model runs in its own process, this takes a few seconds…" : "Reading the timeline…"}</div>`;
   chat.appendChild(pending);
   chat.scrollTop = chat.scrollHeight;
 
@@ -425,16 +414,12 @@ function renderAnswer(chat, a) {
   highlight(cited, card);   // show the evidence for the newest answer straight away
 }
 
-// ── wiring ──────────────────────────────────────────────────
 $("chips").innerHTML = CHIPS.map(c => `<span class="chip">${c}</span>`).join("");
 document.querySelectorAll(".chip").forEach(el => el.onclick = () => ask(el.textContent));
 $("send").onclick = () => ask($("q").value);
 $("q").onkeydown = (e) => { if (e.key === "Enter") ask($("q").value); };
 $("search").oninput = renderUsers;
 
-// Deep links: ?user=<id-or-prefix>&q=<question> opens straight into a view.
-// Useful for a demo (hand someone the exact screen you meant) and for driving
-// the UI from a script.
 async function boot() {
   await loadUsers();
   const params = new URLSearchParams(location.search);

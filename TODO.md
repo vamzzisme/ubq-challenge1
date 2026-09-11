@@ -1,4 +1,4 @@
-# Ask the Sensors — status
+# Ask the Sensors - status
 
 Layered rebuild in `asqa/`. Legacy `src/` retained as the recorded "before"
 baseline for the report's comparison.
@@ -17,9 +17,9 @@ baseline for the report's comparison.
 
 ## Remaining
 
-- [ ] **Technical report** (10–12 pages) — draft
-- [ ] **Per-member contribution statement** — yours to write
-- [ ] **AI-use disclosure** — yours to confirm
+- [ ] **Technical report** (10-12 pages) - draft
+- [ ] **Per-member contribution statement** - yours to write
+- [ ] **AI-use disclosure** - yours to confirm
 - [ ] Optional: motion-primitive codebook for richer explanations
 - [ ] Optional: retire `src/` once the report's before/after is written
 

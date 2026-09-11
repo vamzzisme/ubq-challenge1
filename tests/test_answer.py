@@ -1,12 +1,4 @@
-#!/usr/bin/env python3
-"""Tests for the interface layer: question parsing and the output contract.
-
-Two things are checked here.  The first is that questions route to the right
-operation and that quantities are parsed correctly -- a silently unparsed "at
-25500 seconds" turns a pinpoint question into a whole-recording answer without
-raising anything.  The second is the output contract itself: the brief specifies
-exact field names and order, and a grader reads them literally.
-"""
+"""Tests for the interface layer: question parsing and the output contract."""
 
 from __future__ import annotations
 
@@ -47,9 +39,6 @@ def _timeline() -> Timeline:
     return Timeline(config.TIME_BASE, 1_400_000_000, 1800.0, windows, intervals, sum(15.0 for _ in windows))
 
 
-# ── parsing ──
-
-
 def test_find_time_handles_plural_units() -> None:
     """`at 25500 seconds` must parse; a \\b after "second" cannot match a plural."""
     assert find_time("What was the user doing at 25500 seconds?") == 25500
@@ -65,7 +54,6 @@ def test_find_activities_prefers_the_longer_phrase() -> None:
     assert find_activities("standing and moving") == ["standing_and_moving"]
     assert find_activities("was she lying down") == ["lying_down"]
     assert find_activities("cycling or running") == ["bicycling", "running"]
-    # Order of mention is preserved, since comparisons depend on it.
     assert find_activities("running or cycling") == ["running", "bicycling"]
 
 
@@ -81,9 +69,6 @@ def test_classify_routes_each_tier() -> None:
     assert classify("How many times did the user walk?") == "count"
     assert classify("Did the user spend more time walking or running?") == "comparison"
     assert classify("When did the user begin running?") == "temporal"
-
-
-# ── the output contract ──
 
 
 def test_output_has_the_required_fields_in_order() -> None:

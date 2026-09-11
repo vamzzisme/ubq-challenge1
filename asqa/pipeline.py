@@ -1,15 +1,4 @@
-#!/usr/bin/env python3
-"""End-to-end pipeline: a recording in, a grounded timeline out.
-
-Ties L1 preprocessing, L2 recognition, the HMM decoder and L3 aggregation into
-one object so that `run.py`, the evaluation harness and the figures all drive
-exactly the same code path.  Anything that only one of them exercised would not
-be the system being reported on.
-
-The pipeline accepts what the brief says the system must accept: either a single
-recording or a directory holding a whole recording's worth of them, in raw
-ExtraSensory `.dat` form or from the preprocessed cache.
-"""
+"""End-to-end pipeline: a recording in, a grounded timeline out."""
 
 from __future__ import annotations
 
@@ -24,9 +13,6 @@ from asqa import config, context, features as feat, timeline as tl
 from asqa.decode import TimeAwareTransitions, decode_labels, estimate_transitions
 from asqa.preprocess import cache_path, load_capture, load_cached, resample_to_grid, WindowRejection
 
-# Below this many windows the context model has too few neighbours to be
-# informative and the context-free model is used instead.  Task 1 hands the
-# system a single recording; Tasks 2-4 hand it a whole day.
 MIN_WINDOWS_FOR_CONTEXT = 5
 
 TIMESTAMP_RE = re.compile(r"^(?P<ts>\d+)\.m_(?P<modality>[a-z_]+)\.dat$")
@@ -34,13 +20,10 @@ TIMESTAMP_RE = re.compile(r"^(?P<ts>\d+)\.m_(?P<modality>[a-z_]+)\.dat$")
 
 @dataclass
 class LoadedRecording:
-    windows: np.ndarray  # (N, WINDOW_SAMPLES, 6)
-    epoch_ts: np.ndarray  # (N,)
+    windows: np.ndarray
+    epoch_ts: np.ndarray
     rejected: int = 0
     source: str = ""
-
-
-# ── Loading ──────────────────────────────────────────────────────────────────
 
 
 def _pair_raw_directory(acc_dir: Path, gyro_dir: Path) -> LoadedRecording:
@@ -66,21 +49,10 @@ def _pair_raw_directory(acc_dir: Path, gyro_dir: Path) -> LoadedRecording:
 
 
 def load_recording(recording: str | Path) -> LoadedRecording:
-    """Load a recording from a cached user id, a raw directory, or a raw file.
-
-    Accepted forms:
-      * a user id or ``.npz`` path already in the preprocessing cache
-      * a directory of ``<ts>.m_raw_acc.dat`` files, whose gyroscope partner
-        directory is found by swapping ``acc`` for ``gyro`` in the path
-      * a single ``.m_raw_acc.dat`` file (the Task 1 case)
-    """
+    """Load a recording from a cached user id, a raw directory, or a raw file."""
     target = Path(recording)
     name = str(recording)
 
-    # A bare user id resolves to the cache first.  Checking the filesystem first
-    # instead is fragile: a stray empty directory sharing the user's name (data
-    # copies leave these behind) silently shadows the cache and the recording
-    # reads as empty.
     if "/" not in name and not target.suffix and cache_path(name).exists():
         data = load_cached(name)
         return LoadedRecording(data.windows, data.epoch_ts, source=name)
@@ -118,9 +90,6 @@ def load_recording(recording: str | Path) -> LoadedRecording:
     return LoadedRecording(window[None, ...], np.asarray([timestamp], dtype=np.int64), source=str(target))
 
 
-# ── The pipeline ─────────────────────────────────────────────────────────────
-
-
 class Pipeline:
     """Recording -> features -> activities -> decoded path -> timeline."""
 
@@ -137,9 +106,6 @@ class Pipeline:
         self.fold = fold
         self._transitions: TimeAwareTransitions | None = None
 
-    # The transition matrix is a property of ordinary human behaviour rather than
-    # of any one recording, so it is estimated once from the training users and
-    # reused.  Estimating it from the recording under test would be circular.
     def transitions(self) -> TimeAwareTransitions:
         if self._transitions is None:
             path = config.MODEL_DIR / f"transitions_fold{self.fold}.npy"
@@ -186,7 +152,7 @@ class Pipeline:
         return tl.build_timeline(
             activities=activities,
             epoch_ts=loaded.epoch_ts,
-            X=base,  # explanations quote raw physical features, not context columns
+            X=base,
             confidences=confidences,
             used_context_model=use_context,
         )

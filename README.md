@@ -76,7 +76,7 @@ point: a 9.6× size reduction for 14 accuracy points.
 
 The open-world language model (Qwen2.5-0.5B-Instruct) is reported separately
 because it dominates: 494M parameters, 1,544 MB peak RSS, 8.9 s per query
-including weight loading — roughly 24,000× the cost of classifying a window.
+including weight loading - roughly 24,000× the cost of classifying a window.
 Only Task 4 questions that do not map onto the seven classes invoke it.
 
 Figures are in [`outputs/figures/`](outputs/figures/); the JSON behind every
@@ -93,38 +93,38 @@ L1 preprocess  →  L2 recognise  →  HMM decode  →  L3 aggregate  →  L4 in
  25 Hz windows    XGBoost          time-aware    durations        → required format
 ```
 
-**L1 — [`asqa/preprocess.py`](asqa/preprocess.py).** Resamples by *sensor
+**L1 - [`asqa/preprocess.py`](asqa/preprocess.py).** Resamples by *sensor
 timestamp*, not sample index. The accelerometer clock is genuinely uneven
-(measured dt 0.024–0.077 s) and 800 samples spans anywhere from ~9 s to ~25 s
+(measured dt 0.024-0.077 s) and 800 samples spans anywhere from ~9 s to ~25 s
 depending on the device, so index-based resampling compresses the window and
 misaligns the two modalities. Acc and gyro are interpolated onto one shared grid
 covering only the interval both actually observed.
 
-**L2 — [`asqa/features.py`](asqa/features.py), [`asqa/recognise.py`](asqa/recognise.py).**
+**L2 - [`asqa/features.py`](asqa/features.py), [`asqa/recognise.py`](asqa/recognise.py).**
 Physics-based features (gravity separation, tilt, autocorrelation cadence, jerk,
 spectral band powers) feeding a three-node hierarchy: static vs dynamic, then
 posture, then gait. Each node's decision variable is a nameable physical
 quantity, which is what lets the interface layer explain an answer rather than
 assert it.
 
-**Temporal context — [`asqa/context.py`](asqa/context.py).** Time-bounded rolling
+**Temporal context - [`asqa/context.py`](asqa/context.py).** Time-bounded rolling
 statistics over neighbouring windows. This is the single largest accuracy lever
 (+9 points): a 15-second window of stillness cannot distinguish lying from
 sitting, but a stretch of them can.
 
-**Decoder — [`asqa/decode.py`](asqa/decode.py).** A time-aware HMM. The
+**Decoder - [`asqa/decode.py`](asqa/decode.py).** A time-aware HMM. The
 per-minute transition matrix is raised to the power `Δt/60`, so a multi-hour
 dropout relaxes toward the stationary distribution instead of asserting that the
 user kept doing the same thing.
 
-**L3 — [`asqa/timeline.py`](asqa/timeline.py).** Merges windows into intervals
+**L3 - [`asqa/timeline.py`](asqa/timeline.py).** Merges windows into intervals
 and separates *observed* time from *spanned* time. ExtraSensory observes ~15 s in
 every 60, so a bout spanning 300 s rests on ~75 s of signal.
 
-**L4 — [`asqa/answer.py`](asqa/answer.py), [`asqa/intent.py`](asqa/intent.py),
-[`asqa/slm.py`](asqa/slm.py).** Reduces a question to an `Intent` — an
+**L4 - [`asqa/answer.py`](asqa/answer.py), [`asqa/intent.py`](asqa/intent.py),
+[`asqa/slm.py`](asqa/slm.py).** Reduces a question to an `Intent` - an
 operation, the classes it names, and a time window (`after 84 hours`,
-`in the first 2 hours`, `between 10 and 20 hours`) — then routes it to one of
+`in the first 2 hours`, `between 10 and 20 hours`) - then routes it to one of
 six operations. Three stages, cheapest first: keyword rules (~0.2 ms, the great
 majority of questions); if those cannot place the wording, the language model
 is asked *what the question is asking for*, never what the answer is, and its
@@ -134,7 +134,7 @@ directly from a menu of real intervals.
 
 The model is **Qwen2.5-3B-Instruct**, chosen by measurement rather than default.
 On ten deliberately unusual phrasings (`tools/parse_strategies.py`) a 0.5B model
-answered 1/10 and stayed inside the closed vocabulary only 3/10 — it echoed the
+answered 1/10 and stayed inside the closed vocabulary only 3/10 - it echoed the
 questioner's word in the vocabulary's shape (`wandering`, `kipping`,
 `legging_it`), having learnt the format but not the membership rule. Forcing
 valid output by scoring lettered options guaranteed membership and still scored
@@ -196,10 +196,10 @@ python -m asqa.dashboard --open        # http://127.0.0.1:8000
 ```
 
 By default the picker offers only the **held-out recordings** in
-`data/5 new users/` — five users that appear in no model's training set, so what
+`data/5 new users/` - five users that appear in no model's training set, so what
 you see is how the system behaves on a genuinely new person. Pick one and ask
 questions in plain language. Clicking any answer highlights, on a timeline of the whole recording,
-exactly the intervals that answer cited — hovering a segment shows its measured
+exactly the intervals that answer cited - hovering a segment shows its measured
 energy, cadence, tilt and rotation.
 
 Two details worth knowing:
@@ -245,11 +245,10 @@ python -m tests.test_dashboard    # dashboard API contract; asserts it matches t
 ```
 asqa/          the system, one module per layer
 run.py         the runnable entry point
-tools/         which_fold.py — which model is safe for a given user
+tools/         which_fold.py - which model is safe for a given user
 tests/         regression tests and an all-tier question set
 outputs/       models, timelines, evaluation JSON, figures (regenerable)
 data/          local data only; never committed
-src/           LEGACY first implementation, kept for the before/after comparison
 ```
 
 ## Known limitations
@@ -265,7 +264,7 @@ system.
 - **Counts and durations score lowest.** Both depend on bout boundaries, so a
   fragmented prediction hurts them more than it hurts a yes/no answer.
 - **Running remains hard (0.398 F1, high variance).** It is 0.34% of labelled
-  windows. Worse, some running-labelled windows contain no motion at all — one
+  windows. Worse, some running-labelled windows contain no motion at all - one
   user's 68 running windows have the same body-acceleration energy as lying down
   (0.003 g) while their walking reads 0.333 g, i.e. the phone was not on them.
 - **Lying vs sitting is the dominant residual confusion.** When the phone is
@@ -275,7 +274,7 @@ system.
   pedal-based mode of movement" it answered "Pedal-based mode" while citing a
   *sitting* interval. Behaviour phrases that map onto the seven classes are
   therefore resolved deterministically; the model is used for prose, not verdicts.
-- **PyTorch and XGBoost cannot share an interpreter here** — importing torch into
+- **PyTorch and XGBoost cannot share an interpreter here** - importing torch into
   a process that has run XGBoost segfaults on this platform, on both MPS and CPU.
   The language model runs in an isolated worker process
   ([`asqa/slm_worker.py`](asqa/slm_worker.py)).

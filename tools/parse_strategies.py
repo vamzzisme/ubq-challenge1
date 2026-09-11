@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
-"""Compare three ways of getting a class name out of a 0.5B model.
-
-The question this answers: why not just let the language model read an unusual
-word and name the activity from the list?  That is what it is asked to do, and
-on this model it mostly does not comply.  Run this to reproduce the numbers.
-
-    python tools/parse_strategies.py
-
-  generate            free generation, prompt names the closed vocabulary
-  choose              the classes as lettered options; one token scored, so a
-                      word outside the list cannot be produced at all
-  generate+resolve    free generation, then stems and prefixes map the word
-                      back onto the vocabulary (what the pipeline ships)
-"""
+"""Compare three ways of getting a class name out of a 0.5B model."""
 
 from __future__ import annotations
 
@@ -23,11 +9,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from asqa import config  # noqa: E402
-from asqa.answer import GROUP_MEMBERS, resolve_activity_word, resolve_group_word  # noqa: E402
+from asqa import config
+from asqa.answer import GROUP_MEMBERS, resolve_activity_word, resolve_group_word
 
-# Deliberately unusual phrasings: the case where the rules have already failed
-# and the model is the only thing left. Everyday wording never gets this far.
 CASES = [
     ("did the user wander after 84h?", "walking"),
     ("when did she first start to jog?", "running"),
@@ -64,16 +48,13 @@ def main() -> None:
         raw = (parsed.get("activities") or [None])[0]
         raw = str(raw) if raw else None
 
-        # 1. free generation, taken literally
         if raw in config.ACTIVITY_INDEX:
             in_vocab += 1
             tally["generate"] += raw == want
 
-        # 2. forced choice over lettered options
         chosen = ask(question, "choose").get("activity")
         tally["choose"] += chosen == want
 
-        # 3. generation, then mapped back onto the vocabulary
         resolved = resolve_activity_word(raw) if raw else None
         if not resolved and not parsed.get("activities"):
             group = resolve_group_word(str(parsed.get("group") or ""))

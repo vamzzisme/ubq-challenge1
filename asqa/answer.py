@@ -1,25 +1,4 @@
-#!/usr/bin/env python3
-"""L4 -- interface: map a natural-language question onto the structured timeline.
-
-The brief constrains this layer more tightly than the others: *"the language it
-produces must be tied to evidence that the earlier layers found, not generated
-freely."*  Every field emitted here therefore comes from a `timeline.Interval`
-object.  The question selects which operation to run and which intervals to
-read; it never supplies a number, a timestamp, or a claim of its own.
-
-Question types handled, matching the four tiers:
-
-    identification   what is the user doing (optionally at a time)   Task 1
-    verification     is/was/did the user <activity>                  Task 1
-    duration         how long                                        Task 2
-    count            how many times / how often                      Task 2
-    comparison       more time X or Y                                Task 2
-    temporal         when did X begin / start                        Task 2, 3
-    open_world       anything else -- routed to the SLM              Task 4
-
-Anything the router cannot confidently place goes to the small language model,
-which is given a menu of real intervals and may only cite from it (see `slm.py`).
-"""
+"""L4 interface: map a natural-language question onto the structured timeline."""
 
 from __future__ import annotations
 
@@ -31,8 +10,6 @@ from asqa import config
 from asqa.intent import Intent, TimeWindow, clip, find_window
 from asqa.timeline import Interval, Timeline, cite, evidence_block
 
-# Phrases that name each activity.  Ordered longest-first when matching so that
-# "standing and moving" is not swallowed by "standing".
 ACTIVITY_PHRASES: dict[str, tuple[str, ...]] = {
     "lying_down": ("lying down", "lie down", "lying", "laying down", "lay down", "lied down"),
     "sitting": ("sitting", "seated", "sit down", "sits", "sat", "sit"),
@@ -47,13 +24,6 @@ ACTIVITY_PHRASES: dict[str, tuple[str, ...]] = {
     "bicycling": ("bicycling", "cycling", "bicycle", "biking", "bike", "cycle", "pedalling", "pedaling"),
 }
 
-# Loose language that maps onto a group of classes rather than one.  Task 4 asks
-# about behaviour rather than class names ("resting", "strenuous", "a wheeled or
-# pedal-based mode of movement"), but most such phrasings do resolve onto the
-# seven classes.  Resolving them here rather than in the language model keeps the
-# verdict tied to the classifier: a 0.5B model asked to judge "wheeled movement"
-# was measured answering "Pedal-based mode" while citing a *sitting* interval.
-# The model is better used for prose than for verdicts.
 GROUP_PHRASES: dict[str, tuple[str, ...]] = {
     "resting": ("resting", "rest", "inactive", "idle", "sedentary", "still", "sleeping", "asleep"),
     "active": (
@@ -134,9 +104,6 @@ def _none(explanation: str, kind: str, event: str = "N/A") -> Answer:
     return Answer("N/A", event, "N/A", "N/A", "N/A", explanation, kind, [])
 
 
-# ── Question parsing ─────────────────────────────────────────────────────────
-
-
 def find_activities(question: str) -> list[str]:
     """Activities named in the question, in the order they are mentioned."""
     lower = question.lower()
@@ -151,7 +118,6 @@ def find_activities(question: str) -> list[str]:
     for activity, phrase in ordered:
         for match in re.finditer(rf"\b{re.escape(phrase)}\b", lower):
             span = match.span()
-            # A longer phrase already covering this text wins.
             if any(start <= span[0] < end for start, end in claimed):
                 continue
             claimed.append(span)
@@ -168,7 +134,7 @@ def _stems(word: str) -> list[str]:
             stem = word[: -len(suffix)]
             forms.append(stem)
             if suffix == "ing" and len(stem) >= 4:
-                forms.append(stem + "e")  # amble -> ambling
+                forms.append(stem + "e")
     return forms
 
 
@@ -182,17 +148,7 @@ def _shared_prefix(left: str, right: str) -> str:
 
 
 def resolve_activity_word(word: str) -> str | None:
-    """Map one word onto a class, tolerating the forms a model actually emits.
-
-    Only ever applied to the language model's output, never to the user's
-    question -- the strict phrase matcher stays strict for the rules, because a
-    loose match there would misread questions the rules currently get right.
-
-    The model reaches for morphological variants of the vocabulary it was given:
-    "wandering" for walk, "jogging" for run. Discarding those threw away parses
-    that were semantically correct, so the word and its stems are matched
-    against the phrase table, then against phrase prefixes.
-    """
+    """Map one word onto a class, tolerating the forms a model actually emits."""
     word = word.strip().lower()
     if word.replace(" ", "_").replace("-", "_") in config.ACTIVITY_INDEX:
         return word.replace(" ", "_").replace("-", "_")
@@ -201,7 +157,6 @@ def resolve_activity_word(word: str) -> str | None:
         if hits := find_activities(form):
             return hits[0]
 
-    # Last resort: a stem that prefixes a known phrase ("wander" -> "wandering").
     for form in _stems(word):
         if len(form) < 4:
             continue
@@ -212,12 +167,7 @@ def resolve_activity_word(word: str) -> str | None:
 
 
 def resolve_group_word(word: str) -> str | None:
-    """Map one word onto a behaviour group, tolerating near-misses.
-
-    The model returns "activity" where the vocabulary says "active", and
-    "rest"/"restful" for resting. These are the same intent, so match on stems
-    and prefixes rather than requiring the exact token.
-    """
+    """Map one word onto a behaviour group, tolerating near-misses."""
     word = word.strip().lower()
     if word in GROUP_MEMBERS:
         return word
@@ -228,8 +178,6 @@ def resolve_group_word(word: str) -> str | None:
         for group in GROUP_MEMBERS:
             if group.startswith(form) or form.startswith(group):
                 return group
-            # "activity" and "active" share a stem but neither prefixes the
-            # other, so compare on the shared opening instead.
             if len(_shared_prefix(form, group)) >= 5:
                 return group
         for group, phrases in GROUP_PHRASES.items():
@@ -249,8 +197,6 @@ def find_group(question: str) -> str | None:
 def find_time(question: str) -> float | None:
     """A time reference in seconds from the start, if the question gives one."""
     lower = question.lower()
-    # Units must allow the plural: `(?:second|s)\b` never matches "25500 seconds",
-    # because \b cannot sit between the "d" of "second" and the following "s".
     match = re.search(r"(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\b", lower)
     if match:
         return float(match.group(1))
@@ -275,7 +221,7 @@ def classify(question: str) -> str:
         for p in (
             "how long",
             "how much time",
-            "how much of",  # "how much of the afternoon did she spend resting"
+            "how much of",
             "total time",
             "duration",
             "how many hours",
@@ -330,9 +276,6 @@ def _window_note(window: TimeWindow | None, timeline: Timeline) -> str:
     return f" {window.resolve(timeline.duration_s).describe()}"
 
 
-# ── Explanation helpers ──────────────────────────────────────────────────────
-
-
 def _describe_signal(intervals: list[Interval]) -> str:
     """A short, quantitative phrase drawn from the cited intervals themselves."""
     if not intervals:
@@ -367,9 +310,6 @@ def _sampling_note(timeline: Timeline, intervals: list[Interval]) -> str:
 
 def _label(activity: str) -> str:
     return config.DISPLAY_NAMES.get(activity, activity)
-
-
-# ── The operations ───────────────────────────────────────────────────────────
 
 
 def answer_identification(question: str, timeline: Timeline, intent: Intent | None = None) -> Answer:
@@ -409,10 +349,6 @@ def answer_identification(question: str, timeline: Timeline, intent: Intent | No
                 "identification",
             )
 
-        # The instant was not directly sampled -- ExtraSensory records about 15 s
-        # in every 60 -- but it may still fall inside a bout bracketed by windows
-        # on both sides. Answering from the enclosing bout is better supported
-        # than refusing, provided the gap is stated rather than hidden.
         interval = timeline.interval_at(time_s)
         if interval is not None:
             return _from(
@@ -437,9 +373,6 @@ def answer_identification(question: str, timeline: Timeline, intent: Intent | No
         return _none("The recording contains no usable sensor windows.", "identification")
     intervals = timeline.by_activity(dominant)
 
-    # A single short recording is one classification, not a share of a day.
-    # Phrasing it as "the greatest share of the recording (0 min across 1 bouts)"
-    # is both odd and misleading for the Task 1 single-window case.
     if len(timeline.windows) == 1:
         window = timeline.windows[0]
         return _from(
@@ -610,8 +543,6 @@ def answer_temporal(question: str, timeline: Timeline, intent: Intent | None = N
     )
 
 
-# ── Router ───────────────────────────────────────────────────────────────────
-
 HANDLERS = {
     "identification": answer_identification,
     "verification": answer_verification,
@@ -623,24 +554,7 @@ HANDLERS = {
 
 
 def answer_question(question: str, timeline: Timeline, use_slm: bool = True) -> Answer:
-    """Answer one question against one timeline, in the brief's output format.
-
-    Three stages, cheapest first:
-
-    1. **Rules.** A keyword router reduces the question to an `Intent` and the
-       matching handler computes the answer. This covers the great majority of
-       questions and costs well under a millisecond.
-    2. **The model as a parser.** If the rules cannot place the question -- an
-       unfamiliar synonym, a typo, an unusual phrasing -- the language model is
-       asked what the question is *asking for*, not what the answer is. Its
-       reply is validated against a closed vocabulary and handed to the same
-       handler, so the answer is still computed from the timeline.
-    3. **The model as an answerer.** Only if parsing also fails does the model
-       answer directly, choosing from a menu of real intervals (see `slm.py`).
-
-    Putting the parser ahead of the answerer matters: a 0.5B model is reliable
-    at "which operation is this?" and unreliable at "what did this person do?".
-    """
+    """Answer one question against one timeline, in the brief's output format."""
     intent = parse_question(question)
 
     if intent.operation in HANDLERS:
@@ -666,7 +580,7 @@ def answer_question(question: str, timeline: Timeline, use_slm: bool = True) -> 
                 return result
 
         return answer_open_world(question, timeline)
-    except Exception as exc:  # noqa: BLE001 - the SLM is optional at runtime
+    except Exception as exc:
         return _none(
             f"This question falls outside the system's structured operations and the "
             f"language model could not be used ({type(exc).__name__}: {exc}).",

@@ -1,15 +1,4 @@
-#!/usr/bin/env python3
-"""Guards for temporal-context features.
-
-Context features are the largest single accuracy lever in the pipeline, and also
-the easiest place to introduce a silent leak.  Two failure modes would both
-inflate reported accuracy while breaking the system on real input:
-
-  * letting one recording's windows describe another's, and
-  * averaging "context" across a multi-hour dropout.
-
-Each has a test below.
-"""
+"""Guards for temporal-context features."""
 
 from __future__ import annotations
 
@@ -65,15 +54,10 @@ def test_no_context_across_a_dropout() -> None:
     out = context.augment(X, times)
 
     mean_col = F + context.feature_names().index("ctx_body_acc_rms_mean_2")
-    # The first three windows are all 0.0 and sit within minutes of each other.
-    # The two windows after the gap are 1.0.  If the gap were bridged, the means
-    # would pull toward each other.
     assert np.allclose(out[:3, mean_col], 0.0), f"context leaked across the gap: {out[:3, mean_col]}"
     assert np.allclose(out[3:, mean_col], 1.0), f"context leaked across the gap: {out[3:, mean_col]}"
 
     prev_col = F + context.feature_names().index("ctx_body_acc_rms_prev")
-    # The window immediately after the gap has no usable predecessor, so it is
-    # its own -- never the window from six hours earlier.
     assert out[3, prev_col] == 1.0, "a window across a dropout was treated as an adjacent neighbour"
 
 
@@ -82,8 +66,6 @@ def test_recordings_do_not_bleed_into_each_other() -> None:
     times = _minutes(6)
     alone = context.augment(_matrix([0.0] * 6), times)
 
-    # A second person, recorded at the same wall-clock times, doing something
-    # energetic.  Augmented separately, the first person's features must not move.
     other = context.augment(_matrix([5.0] * 6), times)
     again = context.augment(_matrix([0.0] * 6), times)
 

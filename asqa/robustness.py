@@ -1,21 +1,4 @@
-#!/usr/bin/env python3
-"""Robustness: accuracy as the input signal is deliberately degraded.
-
-The brief asks for a curve rather than a single clean number, on the argument
-that *"a curve that stays flat as conditions worsen is stronger evidence of a
-usable system than any single clean number"*.
-
-Three degradations are applied to the raw 25 Hz windows, before feature
-extraction, so the whole pipeline experiences them the way it would in the field:
-
-    noise     Gaussian noise on the accelerometer, scaled by measured gravity so
-              the level means the same thing for the users reporting in g and
-              the users reporting in m/s^2
-    dropout   a fraction of samples lost and linearly bridged, as happens when a
-              phone throttles its sensors
-    rate      the stream decimated below 25 Hz and interpolated back, which is
-              the brief's "sampling rate below 25 Hz" case
-"""
+"""Robustness: accuracy as the input signal is deliberately degraded."""
 
 from __future__ import annotations
 
@@ -38,8 +21,6 @@ def add_noise(windows: np.ndarray, sigma_g: float, rng: np.random.Generator) -> 
         return windows
     out = windows.copy()
     acc = out[:, :, config.ACC_SLICE]
-    # Scale by each window's gravity magnitude so a level means the same thing
-    # regardless of the unit the device reported in.
     scale = np.linalg.norm(acc.mean(axis=1), axis=1, keepdims=True)[:, None, :]
     scale = np.where(scale > 1e-6, scale, 1.0)
     out[:, :, config.ACC_SLICE] = acc + rng.normal(0.0, sigma_g, acc.shape) * scale
@@ -55,7 +36,7 @@ def drop_samples(windows: np.ndarray, rate: float, rng: np.random.Generator) -> 
     grid = np.arange(n_samples)
     for index in range(len(out)):
         keep = rng.random(n_samples) > rate
-        keep[0] = keep[-1] = True  # keep the ends so interpolation is bounded
+        keep[0] = keep[-1] = True
         for channel in range(out.shape[2]):
             out[index, :, channel] = np.interp(grid, grid[keep], out[index, keep, channel])
     return out

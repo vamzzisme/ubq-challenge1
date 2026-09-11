@@ -1,27 +1,4 @@
-#!/usr/bin/env python3
-"""L3 -- aggregation: turn per-window evidence into intervals, durations and counts.
-
-This is the layer the temporal questions are actually answered from.  It holds
-two ideas that the earlier implementation got wrong and that the brief cares
-about directly.
-
-**Observed time is not spanned time.**  ExtraSensory observes 15 seconds out of
-every 60.  A walking bout running from 900 s to 1200 s therefore *spans* 300
-seconds but was only *observed* for about 75 of them.  Reporting the span as a
-duration would overstate every answer by roughly 4x; reporting only the observed
-seconds understates what the person actually did.  Both numbers are kept, the
-distinction is stated in the answer, and `duration_s` reports the span, which is
-what "how long was the user walking" means in ordinary language.
-
-**Evidence must be citable.**  An answer resting on 256 windows cannot cite 256
-timestamps -- the previous implementation emitted exactly that, an unreadable and
-unscoreable wall of ranges.  Intervals are merged, then the largest few are cited
-with the remainder summarised, so `Timestamp(s)` stays checkable by a human.
-
-Modality and channel strings come from `config.evidence_source()`, the single
-definition shared with the ground-truth builder.  When the two disagreed, every
-grounded answer scored zero regardless of how good the model was.
-"""
+"""L3 aggregation: turn per-window evidence into intervals, durations and counts."""
 
 from __future__ import annotations
 
@@ -34,15 +11,10 @@ import numpy as np
 
 from asqa import config, features as feat
 
-# Windows of the same activity separated by no more than this are one bout.  At
-# ExtraSensory's one-minute cadence this bridges a couple of missed samples
-# without welding genuinely separate episodes together.
 DEFAULT_MERGE_GAP_S = 180.0
 
-# How many intervals an answer may cite before the rest are summarised.
 MAX_CITED_INTERVALS = 6
 
-# Features quoted in explanations, in the order they read most naturally.
 EXPLANATION_FEATURES = (
     "body_acc_rms",
     "cadence_hz",
@@ -105,7 +77,6 @@ class Timeline:
     observed_s: float
     used_context_model: bool = True
 
-    # ── queries the interface layer builds answers from ──
 
     def by_activity(self, activity: str) -> list[Interval]:
         return [interval for interval in self.intervals if interval.activity == activity]
@@ -176,9 +147,6 @@ class Timeline:
         return path
 
 
-# ── Construction ─────────────────────────────────────────────────────────────
-
-
 def _signal_summary(X_row: np.ndarray) -> dict[str, float]:
     """The handful of physical quantities an explanation may quote."""
     summary = {}
@@ -197,12 +165,7 @@ def build_timeline(
     merge_gap_s: float = DEFAULT_MERGE_GAP_S,
     used_context_model: bool = True,
 ) -> Timeline:
-    """Assemble a timeline from decoded per-window activities.
-
-    ``epoch_ts`` are the recording's window timestamps; everything downstream is
-    expressed as seconds from the earliest of them, which is the convention the
-    brief asks be stated and held to.
-    """
+    """Assemble a timeline from decoded per-window activities."""
     if len(activities) == 0:
         return Timeline(config.TIME_BASE, 0, 0.0, [], [], 0.0, used_context_model)
 
@@ -232,8 +195,6 @@ def build_timeline(
     for window in windows[1:]:
         previous = current[-1]
         same = window.activity == previous.activity
-        # Gap measured from the end of the last observed window, so back-to-back
-        # windows read as a gap of zero.
         if same and (window.start_s - previous.end_s) <= merge_gap_s:
             current.append(window)
         else:
@@ -272,16 +233,8 @@ def _close(group: list[Window]) -> Interval:
     )
 
 
-# ── Evidence formatting ──────────────────────────────────────────────────────
-
-
 def cite(intervals: list[Interval], limit: int = MAX_CITED_INTERVALS) -> str:
-    """Render intervals as a `Timestamp(s)` field a person can actually check.
-
-    The longest bouts are cited by name and the remainder summarised, because an
-    answer that lists every one of 256 windows cannot be verified by a reader or
-    scored by a grader.
-    """
+    """Render intervals as a `Timestamp(s)` field a person can actually check."""
     if not intervals:
         return "N/A"
 

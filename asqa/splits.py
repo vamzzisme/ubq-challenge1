@@ -1,24 +1,4 @@
-#!/usr/bin/env python3
-"""L2b -- user-disjoint fold assignment, aware of the rare classes.
-
-Two constraints shape this layer.
-
-First, generalisation is measured across *people*: no user may appear in both
-the training and the evaluation portion of a fold, or the reported accuracy is
-measuring memorisation of one person's gait.
-
-Second, the rare classes are concentrated in a handful of users.  Running
-accounts for 0.24% of labelled windows and lives in five users, one of whom
-holds 40% of it.  A naive random fold assignment can therefore produce a fold
-whose training portion contains almost no running at all, and the resulting
-per-class F1 swings wildly between folds for reasons that have nothing to do
-with the model.  Folds are therefore built rarest-class-first: the users who
-carry running are spread across folds before anyone else is placed, so every
-fold's training portion retains most of the rare-class evidence.
-
-The assignment is written to ``outputs/folds.json`` and committed, so the
-teaching team reruns exactly the split behind the reported numbers.
-"""
+"""L2b user-disjoint fold assignment, aware of the rare classes."""
 
 from __future__ import annotations
 
@@ -34,12 +14,8 @@ from asqa.preprocess import cached_users, load_cached
 
 N_FOLDS = 5
 
-# Held out for the qualitative timeline and QA demonstrations, and for the
-# head-to-head against the previous implementation's recorded 0.532 accuracy.
-# Keeping it fixed means the report's figures do not move between runs.
 DEMO_USER = "0A986513-7828-4D53-AA1F-E02D6DF9561B"
 
-# Rarest first: these drive the assignment order.
 RARITY_ORDER = ("running", "bicycling", "walking", "standing")
 
 
@@ -63,8 +39,6 @@ def assign_folds(counts: dict[str, Counter], n_folds: int = N_FOLDS) -> dict[str
         fold_totals[fold] += sum(counts[user_id].values())
         fold_sizes[fold] += 1
 
-    # Pass 1: for each rare class in turn, deal its carriers round-robin so no
-    # single fold holds out a disproportionate share of that class.
     for activity in RARITY_ORDER:
         carriers = sorted(
             (u for u in counts if u not in folds and counts[u][activity] > 0),
@@ -72,7 +46,6 @@ def assign_folds(counts: dict[str, Counter], n_folds: int = N_FOLDS) -> dict[str
             reverse=True,
         )
         for offset, user_id in enumerate(carriers):
-            # Prefer the fold that currently holds least of this class.
             held = {
                 index: sum(counts[u][activity] for u, f in folds.items() if f == index)
                 for index in range(n_folds)
@@ -80,7 +53,6 @@ def assign_folds(counts: dict[str, Counter], n_folds: int = N_FOLDS) -> dict[str
             fold = min(range(n_folds), key=lambda i: (held[i], fold_sizes[i], fold_totals[i]))
             place(user_id, fold)
 
-    # Pass 2: everyone else goes wherever balances total window count best.
     for user_id in sorted(counts, key=lambda u: sum(counts[u].values()), reverse=True):
         if user_id in folds:
             continue
@@ -91,15 +63,9 @@ def assign_folds(counts: dict[str, Counter], n_folds: int = N_FOLDS) -> dict[str
 
 
 def build_split(folds: dict[str, int], fold_index: int, n_validation: int = 2) -> dict[str, list[str]]:
-    """Turn a fold assignment into train / validation / test user lists.
-
-    Validation users are drawn from the *training* side (never the test side) so
-    that early stopping and probability calibration never see the test people.
-    """
+    """Turn a fold assignment into train / validation / test user lists."""
     test = sorted(u for u, f in folds.items() if f == fold_index)
     remaining = sorted(u for u, f in folds.items() if f != fold_index)
-    # Validation comes from the next fold round-robin, keeping it deterministic
-    # and user-disjoint from both train and test.
     validation_fold = (fold_index + 1) % (max(folds.values()) + 1)
     validation_pool = [u for u in remaining if folds[u] == validation_fold]
     validation = validation_pool[:n_validation]
@@ -144,8 +110,6 @@ def main() -> int:
     print(f"Assigned {len(folds)} users to {args.folds} user-disjoint folds\n")
     print(summarise(counts, folds, args.folds))
 
-    # The demo user must actually be evaluated somewhere for the head-to-head
-    # comparison to be meaningful.
     demo_fold = folds.get(DEMO_USER)
     print(f"\nDemo/held-out user {DEMO_USER[:8]} is in fold {demo_fold} (evaluated as test there)")
 
@@ -164,9 +128,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    # Import through the package rather than calling the local `main`, so any
-    # object pickled here records its class as `asqa.splits.X` and not
-    # `__main__.X` -- the latter cannot be unpickled by any other entry point.
     from asqa.splits import main as _main
 
     raise SystemExit(_main())

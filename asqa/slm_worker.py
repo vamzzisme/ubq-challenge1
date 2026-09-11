@@ -1,23 +1,4 @@
-#!/usr/bin/env python3
-"""Isolated worker process for the small language model.
-
-Run as ``python -m asqa.slm_worker``: reads one JSON request on stdin and writes
-one JSON response on stdout.
-
-This exists for a concrete reason.  Loading PyTorch into the same interpreter
-that has already run XGBoost segfaults on this platform (exit 139), on both MPS
-and CPU, and ``KMP_DUPLICATE_LIB_OK`` does not help -- the boosted-tree runtime
-and the tensor runtime bring incompatible native threading libraries into one
-address space.  Rather than give up either component, the language model runs in
-its own interpreter.
-
-The isolation pays for itself twice over: the challenge asks for per-component
-resource cost, and a separate process makes the model's memory and latency
-directly measurable instead of tangled with the classifier's.
-
-Request:   {"question": str, "menu": str, "max_new_tokens": int}
-Response:  {"ok": bool, "payload": {...}} or {"ok": false, "error": str}
-"""
+"""Isolated worker process for the small language model."""
 
 from __future__ import annotations
 
@@ -26,27 +7,8 @@ import os
 import re
 import sys
 
-# Overridable so a larger model can be measured without editing code:
-#     ASQA_SLM_MODEL=Qwen/Qwen2.5-3B-Instruct python tools/parse_strategies.py
-# Measured on tools/parse_strategies.py, ten deliberately unusual phrasings:
-#
-#     0.5B   1/10 correct, stayed inside the vocabulary  3/10
-#     3B     9/10 correct, stayed inside the vocabulary 10/10
-#
-# The 0.5B model does not follow the closed-vocabulary instruction -- it echoes
-# the questioner's word in the vocabulary's shape ("wandering", "kipping"), and
-# constraining the decoding to fix that costs accuracy rather than buying it.
-# The 3B model simply obeys. It costs 22.6s and 10.0 GB against 11.0s and 2.6 GB,
-# paid only when the rules cannot place a question, which is rare.
 MODEL_ID = os.environ.get("ASQA_SLM_MODEL", "Qwen/Qwen2.5-3B-Instruct")
 
-# ── Parse mode ───────────────────────────────────────────────────────────────
-#
-# The model's better job. Rather than asking a 0.5B model what the person did,
-# ask it only what the *question* is asking for, and let the timeline answer.
-# It emits an operation and class names from a closed vocabulary -- never a
-# number, never a timestamp -- so a misparse produces the wrong operation
-# (visible, checkable) rather than a fabricated interval.
 
 PARSE_PROMPT = """You identify which physical activities a question is about.
 
@@ -101,9 +63,6 @@ Guidance for reading the measurements:
 - steady moderate energy with low impact and sustained rotation suggests cycling
 - tilt describes the device orientation, which changes between lying and upright"""
 
-# A 0.5B model needs to be shown the shape of the answer, not just told it.
-# Without this exemplar it reliably emits a JSON *array* and then degenerates
-# into repeating one phrase.
 EXAMPLE_USER = """Intervals:
 [1] 0-600s (600s, classified sitting) energy=0.0100g cadence=0.8Hz tilt=30deg rotation=0.020rad/s
 [2] 660-900s (240s, classified walking) energy=0.3500g cadence=1.8Hz tilt=70deg rotation=1.000rad/s
@@ -149,19 +108,6 @@ def _extract_json(text: str) -> dict | None:
         return None
 
 
-# ── Choosing, rather than generating ─────────────────────────────────────────
-#
-# Asking a 0.5B model to "reply with a word from this list" was measured staying
-# inside the list 3 times in 10: it echoed the questioner's word in the shape of
-# the vocabulary ("wandering", "kipping", "legging_it"), having learned the
-# snake_case format but not the membership rule.
-#
-# So the model is never asked to *write* a class name. It is shown the classes
-# as lettered options and only one token is read back -- the letter. Scoring the
-# letters against each other cannot produce a word outside the list, because no
-# word is generated at all. The vocabulary stops being an instruction the model
-# may ignore and becomes a property of the decoding.
-
 CHOICES = [
     ("A", "lying_down", "lying down, in bed, asleep, having a kip or a lie-in"),
     ("B", "sitting", "sitting, seated, sat down, perched"),
@@ -191,7 +137,6 @@ def choose(question: str) -> dict:
     with torch.no_grad():
         logits = model(**inputs).logits[0, -1]
 
-    # Only the eight letters compete; every other token is out of the running.
     scored = []
     for letter, activity, _ in CHOICES:
         ids = {tokenizer.encode(form, add_special_tokens=False)[0] for form in (letter, " " + letter)}
@@ -246,8 +191,8 @@ def generate(question: str, menu: str, max_new_tokens: int = 320) -> dict:
             generated = model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
-                do_sample=False,  # greedy, so an answer is reproducible
-                repetition_penalty=1.15,  # this model otherwise loops on one phrase
+                do_sample=False,
+                repetition_penalty=1.15,
                 pad_token_id=tokenizer.eos_token_id,
             )
         return tokenizer.decode(generated[0][inputs.input_ids.shape[1] :], skip_special_tokens=True)
@@ -260,8 +205,6 @@ def generate(question: str, menu: str, max_new_tokens: int = 320) -> dict:
         match = re.search(r"\{.*\}", completion, re.DOTALL)
         if match:
             try:
-                # strict=False tolerates literal newlines inside strings, which a
-                # small model emits routinely in a multi-line explanation.
                 return json.loads(match.group(), strict=False)
             except json.JSONDecodeError:
                 continue
@@ -280,7 +223,7 @@ def main() -> int:
                 request["question"], request["menu"], request.get("max_new_tokens", 320)
             )
         sys.stdout.write(json.dumps({"ok": True, "payload": payload}))
-    except Exception as exc:  # noqa: BLE001 - reported to the parent, never raised
+    except Exception as exc:
         sys.stdout.write(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}))
     sys.stdout.flush()
     return 0

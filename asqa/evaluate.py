@@ -1,19 +1,4 @@
-#!/usr/bin/env python3
-"""QA evaluation: score answers by question type, under the rule each type deserves.
-
-The brief is specific about scoring: a categorical answer is judged by exact
-match, a numeric one by closeness, a temporal one by overlap, and an answer only
-counts as *grounded* when the answer is right **and** the cited interval, modality
-and channels hold up.  Those rules are implemented separately here rather than
-collapsed into one accuracy number.
-
-**On circularity.**  The obvious way to build ground truth is to run the same
-question handlers over a label-derived timeline.  That measures the recogniser
-but hides every bug in the interface layer, because the same code produces both
-sides of the comparison.  So the reference answers here are computed *directly
-from the label sequence* by `_truth_*` functions that never import the answer
-router.  Where the two implementations disagree, the disagreement is real.
-"""
+"""QA evaluation: score answers by question type, under the rule each type deserves."""
 
 from __future__ import annotations
 
@@ -29,13 +14,10 @@ from asqa import config
 from asqa.answer import answer_question
 from asqa.timeline import DEFAULT_MERGE_GAP_S, Interval, Timeline, build_timeline
 
-NUMERIC_TOLERANCE_FRACTION = 0.10  # "within about ten percent for a duration"
+NUMERIC_TOLERANCE_FRACTION = 0.10
 NUMERIC_TOLERANCE_FLOOR_S = 30.0
-COUNT_TOLERANCE = 1  # "plus or minus one for a count"
+COUNT_TOLERANCE = 1
 IOU_THRESHOLD = 0.5
-
-
-# ── Ground truth, computed independently of the answer router ────────────────
 
 
 def truth_intervals(labels: np.ndarray, epoch_ts: np.ndarray, activity: str) -> list[tuple[float, float]]:
@@ -75,9 +57,6 @@ def _truth_count(spans: list[tuple[float, float]]) -> int:
 
 def _truth_onset(spans: list[tuple[float, float]]) -> float | None:
     return spans[0][0] if spans else None
-
-
-# ── Scoring rules ────────────────────────────────────────────────────────────
 
 
 def categorical_correct(predicted: str, expected: str) -> bool:
@@ -130,9 +109,6 @@ def interval_iou(predicted: list[tuple[float, float]], expected: list[tuple[floa
     return intersection / union if union > 0 else 0.0
 
 
-# ── Case generation ──────────────────────────────────────────────────────────
-
-
 @dataclass
 class Case:
     question: str
@@ -166,7 +142,6 @@ def build_cases(labels: np.ndarray, epoch_ts: np.ndarray) -> list[Case]:
             cases.append(Case(f"When did the user begin {name}?", "grounding",
                               lambda a, o=onset: numeric_correct(a.answer, o, NUMERIC_TOLERANCE_FRACTION, NUMERIC_TOLERANCE_FLOOR_S),
                               spans[:1], f"expect onset ~{onset:.0f} s"))
-        # Identification pinned to a moment inside a real bout.
         if spans:
             middle = (spans[0][0] + spans[0][1]) / 2
             cases.append(Case(f"What activity was the user doing at {middle:.0f} seconds?", "identification",
@@ -177,7 +152,6 @@ def build_cases(labels: np.ndarray, epoch_ts: np.ndarray) -> list[Case]:
         cases.append(Case(f"Did the user {name}?", "verification",
                           lambda a: categorical_correct(a.answer, "No"), [], "expect No"))
 
-    # Comparison, over the two most common activities.
     totals = {a: _truth_duration(truth_intervals(labels, epoch_ts, a)) for a in present}
     ranked = sorted(totals, key=lambda a: totals[a], reverse=True)
     if len(ranked) >= 2:
@@ -194,7 +168,6 @@ def build_cases(labels: np.ndarray, epoch_ts: np.ndarray) -> list[Case]:
                           lambda a, w=config.DISPLAY_NAMES[ranked[0]]: categorical_correct(a.answer, w),
                           truth_intervals(labels, epoch_ts, ranked[0]), f"expect {config.DISPLAY_NAMES[ranked[0]]}"))
 
-    # Open-world: behaviour language rather than class names.
     resting = merge(truth_intervals(labels, epoch_ts, "lying_down") + truth_intervals(labels, epoch_ts, "sitting"))
     if resting:
         cases.append(Case("Was the user resting for a prolonged period?", "open_world",
@@ -208,9 +181,6 @@ def build_cases(labels: np.ndarray, epoch_ts: np.ndarray) -> list[Case]:
                       lambda a, e=("Yes" if active else "No"): categorical_correct(a.answer, e),
                       active, f"expect {'Yes' if active else 'No'}"))
     return cases
-
-
-# ── Running an evaluation ────────────────────────────────────────────────────
 
 
 def predicted_spans(answer) -> list[tuple[float, float]]:
@@ -237,7 +207,6 @@ def evaluate_recording(
         source_ok = (not cites) or (
             answer.modality == source["modality"] and answer.channels == source["channels"]
         )
-        # A negative answer legitimately cites nothing; it is grounded if correct.
         grounded = correct and source_ok and (iou >= iou_threshold if case.truth_spans else not cites)
 
         results.append({
@@ -269,8 +238,6 @@ def summarise(results: list[dict[str, Any]]) -> dict[str, Any]:
     }
     return {
         "case_count": len(results),
-        # Macro-averaged across question types, as the brief specifies, so the
-        # abundant easy sedentary cases do not dominate.
         "overall_qa_accuracy_macro": float(np.mean([v["answer_accuracy"] for v in per_type.values()])),
         "overall_grounded_accuracy_macro": float(np.mean([v["grounded_accuracy"] for v in per_type.values()])),
         "overall_qa_accuracy_micro": float(np.mean([r["answer_correct"] for r in results])),
@@ -367,7 +334,6 @@ def main() -> int:
     print(f"overall grounded accuracy (macro)     : {overall['overall_grounded_accuracy_macro']:.3f}")
     print(f"overall QA accuracy (micro)           : {overall['overall_qa_accuracy_micro']:.3f}")
 
-    # Average the sweeps across recordings for the strictness figure.
     def average(points: list[list[dict]], key: str) -> list[dict]:
         merged: dict[float, list[float]] = defaultdict(list)
         for series in points:

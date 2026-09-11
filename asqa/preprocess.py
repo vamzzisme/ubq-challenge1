@@ -1,24 +1,4 @@
-#!/usr/bin/env python3
-"""L1 -- preprocessing: clock-true resampling of raw ExtraSensory captures to 25 Hz.
-
-Each ExtraSensory minute contributes one capture per modality, and each capture
-holds 800 rows of ``uptime_seconds x y z``.  The two modalities do *not* share a
-sampling regime:
-
-    m_raw_acc    800 rows over ~23.2 s   (~34.5 Hz, dt 0.024-0.077 s, uneven)
-    m_proc_gyro  800 rows over ~20.0 s   (40.0 Hz, uniform)
-
-They do, however, share one device uptime clock, which is what makes honest
-fusion possible.  This module therefore resamples *by timestamp*, not by sample
-index: it builds a uniform 25 Hz grid across the interval both modalities
-actually observed and interpolates all six channels onto that single grid.
-
-Resampling by index instead -- the previous implementation's approach -- silently
-compressed every accelerometer window by ~16% and left acc and gyro describing
-different stretches of time.  That corrupts cadence and dominant-frequency
-features, which are precisely the features that separate walking from running
-from bicycling.
-"""
+"""L1 preprocessing: clock-true resampling of raw ExtraSensory captures to 25 Hz."""
 
 from __future__ import annotations
 
@@ -33,9 +13,6 @@ from pathlib import Path
 import numpy as np
 
 from asqa import config
-
-
-# ── Loading raw captures ─────────────────────────────────────────────────────
 
 
 def load_capture(path: Path) -> np.ndarray:
@@ -64,19 +41,12 @@ def resample_to_grid(
     max_gap_s: float = config.MAX_SAMPLE_GAP_S,
     min_overlap_s: float = config.MIN_OVERLAP_S,
 ) -> tuple[np.ndarray, dict[str, float]] | WindowRejection:
-    """Interpolate acc and gyro onto one shared uniform grid.
-
-    Returns ``(windows[n_samples, 6], diagnostics)`` or a ``WindowRejection``.
-    The grid spans the interval observed by *both* modalities, so the returned
-    channels are sample-for-sample comparable across the two sensors.
-    """
+    """Interpolate acc and gyro onto one shared uniform grid."""
     if len(acc) < 2 or len(gyro) < 2:
         return WindowRejection("too_few_samples", f"acc={len(acc)} gyro={len(gyro)}")
 
     acc_t, gyro_t = acc[:, 0], gyro[:, 0]
 
-    # The device clock must advance monotonically for interpolation to mean
-    # anything.  Sort defensively rather than assuming file order.
     acc_order, gyro_order = np.argsort(acc_t), np.argsort(gyro_t)
     acc, gyro = acc[acc_order], gyro[gyro_order]
     acc_t, gyro_t = acc[:, 0], gyro[:, 0]
@@ -84,29 +54,18 @@ def resample_to_grid(
     if not (np.isfinite(acc).all() and np.isfinite(gyro).all()):
         return WindowRejection("non_finite")
 
-    # Largest hole in either stream.  A window with a half-second hole cannot
-    # honestly claim a 25 Hz reconstruction across that hole.
     acc_gap = float(np.max(np.diff(acc_t))) if len(acc_t) > 1 else np.inf
     gyro_gap = float(np.max(np.diff(gyro_t))) if len(gyro_t) > 1 else np.inf
     max_gap = max(acc_gap, gyro_gap)
     if max_gap > max_gap_s:
         return WindowRejection("gap_too_large", f"{max_gap:.3f}s")
 
-    # The overlap is the only stretch where fusion is real rather than
-    # extrapolated.
     start = max(acc_t[0], gyro_t[0])
     end = min(acc_t[-1], gyro_t[-1])
     overlap_s = end - start
     if overlap_s < min_overlap_s:
         return WindowRejection("insufficient_overlap", f"{overlap_s:.2f}s")
 
-    # A fixed-length grid at exactly the target period, anchored at the start of
-    # the overlap.  The window span is checked against the overlap above, so the
-    # grid lies wholly inside the interval both sensors observed and every
-    # returned sample is interpolated between two real measurements.  Clamping
-    # the grid to the overlap instead would hold the final sample constant for
-    # the remainder of the window, fabricating a motionless tail that biases the
-    # window toward "static" and corrupts its spectrum.
     period = 1.0 / rate_hz
     grid = start + np.arange(n_samples, dtype=np.float64) * period
     if grid[-1] > end + 1e-9:
@@ -129,16 +88,8 @@ def resample_to_grid(
     return window, diagnostics
 
 
-# ── Labels ───────────────────────────────────────────────────────────────────
-
-
 def load_labels(user_id: str) -> dict[int, str]:
-    """Map ``epoch timestamp -> coarse activity`` for one user.
-
-    ``standing`` is returned as the coarse ExtraSensory label; it is split into
-    ``standing_in_place`` / ``standing_and_moving`` later, once the signal has
-    been read (see :func:`split_standing`).
-    """
+    """Map ``epoch timestamp -> coarse activity`` for one user."""
     path = config.DATA_DIR / f"{user_id}{config.LABEL_SUFFIX}"
     labels: dict[int, str] = {}
     with path.open(newline="", encoding="utf-8") as handle:
@@ -148,22 +99,18 @@ def load_labels(user_id: str) -> dict[int, str]:
             raise ValueError(f"{path} missing label columns: {sorted(missing)}")
         for row in reader:
             active = [name for name, column in config.LABEL_COLUMNS.items() if row[column] == "1"]
-            # Verified across all 15 users: these six labels never co-occur.
             if len(active) == 1:
                 labels[int(row["timestamp"])] = active[0]
     return labels
 
 
-# ── Per-user preprocessing ───────────────────────────────────────────────────
-
-
 @dataclass
 class UserCache:
     user_id: str
-    windows: np.ndarray  # (N, 500, 6) float32
-    epoch_ts: np.ndarray  # (N,) int64 -- ExtraSensory minute identifier
-    uptime_start: np.ndarray  # (N,) float64 -- device clock at grid sample 0
-    labels: list[str]  # (N,) coarse activity
+    windows: np.ndarray
+    epoch_ts: np.ndarray
+    uptime_start: np.ndarray
+    labels: list[str]
     rejections: Counter = field(default_factory=Counter)
     diagnostics: dict[str, float] = field(default_factory=dict)
 
@@ -177,8 +124,6 @@ def preprocess_user(user_id: str, limit: int | None = None, verbose: bool = True
 
     labels = load_labels(user_id)
 
-    # File counts differ between modalities for several users, so intersect on
-    # the timestamp rather than assuming a pairing.
     acc_ts = {int(p.name.split(".", 1)[0]) for p in acc_dir.glob(f"*{config.ACC_SUFFIX}")}
     gyro_ts = {int(p.name.split(".", 1)[0]) for p in gyro_dir.glob(f"*{config.GYRO_SUFFIX}")}
     usable = sorted(acc_ts & gyro_ts & labels.keys())
@@ -326,9 +271,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    # Import through the package rather than calling the local `main`, so any
-    # object pickled here records its class as `asqa.preprocess.X` and not
-    # `__main__.X` -- the latter cannot be unpickled by any other entry point.
     from asqa.preprocess import main as _main
 
     raise SystemExit(_main())

@@ -1,23 +1,4 @@
-#!/usr/bin/env python3
-"""L4b -- open-world reasoning (Task 4) with a small language model, held to the evidence.
-
-Task 4 asks about behaviours the classifier was never trained to name -- "was the
-user resting?", "anything strenuous around noon?", "a wheeled or pedal-based mode
-of movement?".  Answering those needs language, and language is exactly where a
-grounded system usually stops being grounded.
-
-The brief is explicit that free generation does not count: *"the language it
-produces must be tied to evidence that the earlier layers found, not generated
-freely."*  So the model here is never asked for a timestamp.  It is shown a
-numbered menu of intervals that L3 actually produced, and asked to pick from it.
-The interval id it returns is looked up in that menu, and every evidence field is
-copied from the chosen `Interval` object.  If the model returns an id that is not
-on the menu, the answer is rejected and the system falls back to the strongest
-retrieved interval rather than printing a number the model invented.
-
-This is the difference between a model that reads evidence and one that writes
-fiction that resembles evidence.
-"""
+"""L4b open-world reasoning (Task 4) with a small language model, held to the evidence."""
 
 from __future__ import annotations
 
@@ -32,14 +13,8 @@ from asqa.timeline import Interval, Timeline, evidence_block
 
 MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
 
-# How many intervals the model may choose between.  Small enough to fit a 0.5B
-# model's working context comfortably, large enough to cover a day.
 MENU_SIZE = 12
 
-# Generation runs in a separate interpreter (see `slm_worker`): importing
-# PyTorch into a process that has already run XGBoost segfaults here, on both
-# MPS and CPU.  This timeout bounds a cold start, which includes loading the
-# model weights.
 WORKER_TIMEOUT_S = 600
 
 
@@ -69,26 +44,12 @@ def ask_worker(question: str, menu: str = "", max_new_tokens: int = 320, mode: s
 
 
 def parse_intent(question: str, rules):
-    """Fill in the activities a question refers to, when the rules could not.
-
-    The model is given the *narrowest useful job*. Measured on this 0.5B model,
-    asking it for the whole intent was unreliable -- it answered
-    "when did she first start to jog?" with operation=identification and an
-    activity of "jogging", a word outside the vocabulary, despite that exact
-    question appearing in its few-shot examples.
-
-    But the rules already read the operation correctly in those same cases:
-    "did ..." is verification, "when did ..." is temporal. What the rules lack is
-    vocabulary -- they do not know "pushbike" or "tiring". So the rules keep the
-    operation and the time window, and the model supplies only the activity
-    slot, validated against a closed list. A word not on the list is discarded,
-    not guessed at.
-    """
+    """Fill in the activities a question refers to, when the rules could not."""
     from asqa.intent import OPERATIONS, Intent
 
     try:
         payload = ask_worker(question, mode="parse", max_new_tokens=100)
-    except Exception:  # noqa: BLE001 - the model is optional; the caller falls back
+    except Exception:
         return None
 
     from asqa.answer import GROUP_MEMBERS, resolve_activity_word, resolve_group_word
@@ -100,26 +61,14 @@ def parse_intent(question: str, rules):
         if name and name not in activities:
             activities.append(name)
 
-    # The group is a fallback, but only when the model did not try to name an
-    # activity at all. If it proposed words and none of them survived, it was not
-    # tracking the vocabulary on this question, and its group is no more
-    # trustworthy than its activity was -- measured: for "was he having a kip?"
-    # it returned activities=["kipping"], group="wheeled", and "wheeled" is a
-    # real group name, so no amount of validation catches it. Asserting
-    # bicycling there would be confidently wrong; returning nothing lets the
-    # question fall through to an answer that cites intervals and can be checked.
     group = payload.get("group")
     group = resolve_group_word(str(group)) if group else None
     if not activities and group and not proposed:
         activities = list(GROUP_MEMBERS[group])
 
     if not activities:
-        return None  # nothing usable; the caller falls back to menu answering
+        return None
 
-    # The rules read the question's *form* reliably -- "did ..." is verification,
-    # "when did ..." is temporal -- so their operation wins whenever they found
-    # one. The model's operation is used only where the rules gave up entirely,
-    # which happens when a typo defeats the keyword ("how mcuh time ...").
     operation = rules.operation
     if operation not in OPERATIONS:
         proposed = str(payload.get("operation", "")).strip().lower().replace(" ", "_")
@@ -137,16 +86,8 @@ def parse_intent(question: str, rules):
     )
 
 
-# ── Retrieval ────────────────────────────────────────────────────────────────
-
-
 def retrieve(question: str, timeline: Timeline, limit: int = MENU_SIZE) -> list[Interval]:
-    """Pick the intervals most likely to bear on the question.
-
-    Retrieval is deliberately simple and deterministic: activities named or
-    implied by the question first, then the longest remaining intervals so the
-    model always has the shape of the whole recording to reason against.
-    """
+    """Pick the intervals most likely to bear on the question."""
     from asqa.answer import GROUP_MEMBERS
 
     named = set(find_activities(question))
@@ -196,19 +137,13 @@ Guidance for reading the measurements:
 
 
 def resolve_citations(payload: dict, menu: list[Interval]) -> list[Interval]:
-    """Turn the model's interval ids into real Interval objects.
-
-    This is the guard that keeps Task 4 grounded: an id outside the menu is
-    discarded rather than rendered, so the model cannot introduce a timestamp
-    the earlier layers never produced.
-    """
+    """Turn the model's interval ids into real Interval objects."""
     cited: list[Interval] = []
     for raw in payload.get("intervals", []) or []:
         try:
             index = int(raw)
         except (TypeError, ValueError):
             continue
-        # The whole point: an id outside the menu is discarded, never rendered.
         if 1 <= index <= len(menu):
             cited.append(menu[index - 1])
     return cited
@@ -227,7 +162,7 @@ def answer_open_world(question: str, timeline: Timeline) -> Answer:
     try:
         payload = ask_worker(question, render_menu(menu))
         cited = resolve_citations(payload, menu)
-    except Exception as exc:  # noqa: BLE001 - fall back to retrieved evidence
+    except Exception as exc:
         best = menu[0]
         block = evidence_block([best])
         return Answer(
@@ -242,8 +177,6 @@ def answer_open_world(question: str, timeline: Timeline) -> Answer:
         )
 
     if not cited:
-        # An answer with no valid citation is not grounded; supply the retrieved
-        # evidence so the response still points at real signal.
         cited = menu[:1]
 
     block = evidence_block(cited)

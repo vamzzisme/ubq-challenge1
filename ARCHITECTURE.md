@@ -1,4 +1,4 @@
-# Ask the Sensors — Architecture
+# Ask the Sensors - Architecture
 
 How a raw wearable recording becomes a natural-language answer that cites the
 signal it came from.
@@ -35,7 +35,7 @@ out of an `Interval` object built by L3 from measured signal.
 
 ## 1. Entry points
 
-### Primary — what a user runs
+### Primary - what a user runs
 
 | Entry point | Invocation | Purpose |
 |---|---|---|
@@ -48,12 +48,12 @@ automatically), a single `.dat` file, or an ExtraSensory user id already in the
 preprocessing cache. Flags: `--questions <file>`, `--json`, `--fold N`,
 `--no-slm`, `--save-timeline`, `--quiet`.
 
-### Pipeline stages — run once, in order, to reproduce from scratch
+### Pipeline stages - run once, in order, to reproduce from scratch
 
 | Entry point | Produces |
 |---|---|
-| `python -m asqa.preprocess` | `outputs/cache/w15/<user>.npz` — resampled windows |
-| `python -m asqa.splits` | `outputs/folds_w15.json` — subject-disjoint 5-fold split |
+| `python -m asqa.preprocess` | `outputs/cache/w15/<user>.npz` - resampled windows |
+| `python -m asqa.splits` | `outputs/folds_w15.json` - subject-disjoint 5-fold split |
 | `python -m asqa.recognise` | `outputs/models/recogniser_fold{0..4}.joblib` |
 | `python -m asqa.decode` | `outputs/models/transitions_fold{0..4}.npy` |
 | `python -m asqa.evaluate` | `outputs/evaluation/*.json` |
@@ -61,7 +61,7 @@ preprocessing cache. Flags: `--questions <file>`, `--json`, `--fold N`,
 | `python -m asqa.robustness` | noise and dropout degradation curves |
 | `python -m asqa.figures` | `outputs/figures/*.png` |
 
-### Subprocess — never invoked directly by a user
+### Subprocess - never invoked directly by a user
 
 | Entry point | Protocol |
 |---|---|
@@ -75,12 +75,6 @@ preprocessing cache. Flags: `--questions <file>`, `--json`, `--fold N`,
 | `tools/which_fold.py` | Reports which fold holds a given user out |
 | `python -m tests.test_*` | 55 tests across 5 files, no pytest dependency |
 
-### Legacy
-
-`src/` is the pre-rebuild implementation, superseded by the *"Rebuild as layered
-pipeline"* commit. Nothing in `asqa/` imports it. It is retained for history
-only — **read `asqa/`**.
-
 ---
 
 ## 2. Exit points
@@ -91,7 +85,7 @@ Everything the system emits, and where it goes.
 |---|---|---|
 | stdout | The brief's 6-field answer block | `Answer.render()` in `answer.py` |
 | `--output <file>` | Same, to a file | `run.py` |
-| `--json` | `Answer.to_dict()` — includes raw `intervals` | `answer.py` |
+| `--json` | `Answer.to_dict()` - includes raw `intervals` | `answer.py` |
 | `--save-timeline` | Full `Timeline` as JSON | `timeline.py` |
 | HTTP `/api/ask` | JSON answer + evidence | `dashboard.py` |
 | `outputs/models/*.joblib` | Trained classifier per fold (58 MB total) | `recognise.py` |
@@ -114,7 +108,7 @@ Explanation:       <why the measurements support the answer>
 
 ## 3. Layer by layer
 
-### L1 — `preprocess.py`: clock-true resampling
+### L1 - `preprocess.py`: clock-true resampling
 
 **In:** raw `.dat` captures. **Out:** `(N, 375, 6)` windows on an exact 25 Hz grid.
 
@@ -126,21 +120,21 @@ So resampling is *clock-true*: both streams are interpolated onto one absolute
 time grid at exactly `0.04 s` per sample. A window is `375` samples = **15 s**
 (`WINDOW_SPAN_S = 14.96 s` between first and last sample). Any window containing
 a sensor gap wider than `MAX_SAMPLE_GAP_S = 0.5 s` is **rejected**, not
-interpolated across — a `WindowRejection` records why.
+interpolated across - a `WindowRejection` records why.
 
 This is why timestamps are trustworthy enough to cite.
 
 **Key calls:** `load_capture()` → `resample_to_grid()` → `preprocess_user()` → `save_cache()`
 
-### L2a — `features.py`: 40 interpretable features
+### L2a - `features.py`: 40 interpretable features
 
 **In:** one `(375, 6)` window. **Out:** a 40-vector.
 
 Features are chosen so a human can read the explanation, not for benchmark
 scores. `separate_gravity()` splits acceleration into a gravity component (which
 gives **device tilt**, separating lying from upright) and body acceleration
-(which gives **motion energy**). `cadence_hz()` recovers step frequency —
-1.5–2.2 Hz is walking, 2.5–3.5 Hz is running. Plus spectral entropy, band power,
+(which gives **motion energy**). `cadence_hz()` recovers step frequency  - 
+1.5-2.2 Hz is walking, 2.5-3.5 Hz is running. Plus spectral entropy, band power,
 and gyroscope rotation magnitude.
 
 This is what lets an answer say *"a 2.5 Hz cadence and a gravity vector 85° from
@@ -148,11 +142,11 @@ the device axis"* instead of *"the classifier said so."*
 
 **Key calls:** `extract()`, `extract_batch()`
 
-### L2b — `context.py`: temporal context (+63 features)
+### L2b - `context.py`: temporal context (+63 features)
 
 **In:** the ordered feature matrix for a recording. **Out:** 103 features.
 
-A single 15-second window is genuinely ambiguous — sitting still and lying still
+A single 15-second window is genuinely ambiguous - sitting still and lying still
 look alike. `augment()` adds rolling statistics over neighbouring windows and
 time-of-day encodings.
 
@@ -161,7 +155,7 @@ accuracy. `augment_isolated()` exists for the honest single-window case, where
 no neighbours are available; it scores 0.463, and the gap between those two
 numbers *is* the value of context.
 
-### L2 — `recognise.py`: hierarchical XGBoost
+### L2 - `recognise.py`: hierarchical XGBoost
 
 **In:** 103 features. **Out:** calibrated `P(activity | window)` over 7 classes.
 
@@ -175,7 +169,7 @@ stage1   binary: static vs dynamic          (the easy, high-accuracy split)
 
 `predict_proba()` composes them as `P(leaf) = P(branch) × P(leaf | branch)`,
 renormalises, then applies a fitted **temperature** (≈1.14) so the probabilities
-are calibrated — which matters because L2c consumes them as likelihoods, not as
+are calibrated - which matters because L2c consumes them as likelihoods, not as
 argmax decisions.
 
 The static/dynamic boundary is the most reliable thing in accelerometry, so it
@@ -188,11 +182,11 @@ threshold rather than asking the tree to learn it.
 
 **Key calls:** `train()` → `Recogniser.predict_proba()` → `run_fold()`
 
-### L2c — `decode.py`: time-aware HMM
+### L2c - `decode.py`: time-aware HMM
 
 **In:** per-window probabilities. **Out:** one label per window.
 
-Per-window predictions flicker — a single misread window inside a ten-minute
+Per-window predictions flicker - a single misread window inside a ten-minute
 walk produces a spurious one-window "bout", which would then be cited as
 evidence. The decoder imposes temporal coherence.
 
@@ -206,15 +200,15 @@ needs to form bouts.
 
 **Gain: 0.660 → 0.703** accuracy.
 
-### L3 — `timeline.py`: the evidence store
+### L3 - `timeline.py`: the evidence store
 
 **In:** decoded labels + features. **Out:** a `Timeline`.
 
 Three dataclasses:
 
-- **`Window`** — one 15 s observation: `start_s`, `end_s`, `activity`, `confidence`, signal summary
-- **`Interval`** — a *bout*: consecutive same-activity windows, merged across gaps of ≤180 s. Carries `duration_s`, `observed_s`, `n_windows`
-- **`Timeline`** — the whole recording, with `by_activity()`, `present_activities()`, `duration_s`
+- **`Window`** - one 15 s observation: `start_s`, `end_s`, `activity`, `confidence`, signal summary
+- **`Interval`** - a *bout*: consecutive same-activity windows, merged across gaps of ≤180 s. Carries `duration_s`, `observed_s`, `n_windows`
+- **`Timeline`** - the whole recording, with `by_activity()`, `present_activities()`, `duration_s`
 
 The distinction between **`duration_s`** (wall-clock span of the bout) and
 **`observed_s`** (seconds of sensor data actually captured within it) is
@@ -227,7 +221,7 @@ explanation.
 
 **Key calls:** `build_timeline()` → `cite()`, `evidence_block()`
 
-### L4 — `intent.py` + `answer.py`: question to answer
+### L4 - `intent.py` + `answer.py`: question to answer
 
 **`intent.py`** reduces a question to an `Intent`:
 
@@ -259,9 +253,9 @@ would overstate what the window contains.
 Each takes `(question, timeline, intent)` and returns an `Answer` built by
 `_from()`, which attaches the citing intervals. `GROUP_PHRASES` maps behavioural
 language ("resting", "tiring", "wheeled") onto class groups **in the rules**,
-deliberately not in the model — see §5.
+deliberately not in the model - see §5.
 
-### L4b — `slm.py` + `slm_worker.py`: the language model
+### L4b - `slm.py` + `slm_worker.py`: the language model
 
 Reached only when the rules cannot place a question.
 
@@ -276,7 +270,7 @@ Three worker modes:
 | `answer` | answer directly from a menu of real intervals | last resort |
 
 `parse_intent()` keeps the **rules'** operation and time window and uses only
-the model's activity slot — because the rules read question *form* reliably
+the model's activity slot - because the rules read question *form* reliably
 ("did…" is verification) and lack only *vocabulary*. The model's operation is
 used solely when a typo defeats the keyword outright (`"how mcuh time…"`).
 
@@ -321,7 +315,7 @@ Every field of every answer is read from an `Interval`. The language model
 receives a *menu of real intervals* and may only cite by number
 (`resolve_citations()` discards any citation not on the menu). This is what
 makes the system auditable: an answer can be wrong, but it cannot be
-*unfounded* — you can always check the interval it names.
+*unfounded* - you can always check the interval it names.
 
 ### Three stages, cheapest first
 
@@ -335,7 +329,7 @@ A 0.5B model asked to judge *"wheeled movement"* was measured answering
 *"Pedal-based mode"* while citing a **sitting** interval. Behavioural synonyms
 therefore resolve in `GROUP_PHRASES` (rules), and the model's job is narrowed to
 mapping wording onto a closed vocabulary. A misparse yields the wrong
-*operation* — visible and checkable — rather than a fabricated interval.
+*operation* - visible and checkable - rather than a fabricated interval.
 
 ### Model size was measured, not assumed
 
@@ -348,7 +342,7 @@ Ten deliberately unusual phrasings (`tools/parse_strategies.py`):
 | choose (letter scoring) | 1/10 | 8/10 |
 | generate + resolve *(ships)* | 5/10 | **9/10** |
 
-The 0.5B model did not follow the closed-vocabulary instruction — it echoed the
+The 0.5B model did not follow the closed-vocabulary instruction - it echoed the
 questioner's word in the vocabulary's *shape* (`wandering`, `kipping`,
 `legging_it`), having learnt the format but not the membership rule.
 
@@ -360,7 +354,7 @@ letter, not reading the question.
 The 3B model simply obeys. The lesson worth carrying: **validity and correctness
 are separate problems**, and below some capability threshold no prompt or
 decoding engineering substitutes for parameters. Cost: 22.6 s and 10.0 GB peak
-RSS versus 11.0 s and 2.6 GB — paid only when the rules fail.
+RSS versus 11.0 s and 2.6 GB - paid only when the rules fail.
 
 ### The language model runs in its own process
 
@@ -395,7 +389,7 @@ manufacture signal, and that signal would then be cited as evidence.
 |---|---|---|---|
 | context-free | 0.457 | 0.576 | 0.475 |
 | **context-aware** | **0.660** | **0.703** | **0.525** |
-| single isolated window | 0.463 | — | — |
+| single isolated window | 0.463 | - | - |
 
 Context is worth **+0.20**; HMM decoding a further **+0.04**.
 
@@ -411,10 +405,10 @@ Context is worth **+0.20**; HMM decoding a further **+0.04**.
 
 **Robustness** (fold 3): accuracy 0.778 clean → 0.625 at 1% additive noise →
 0.520 at 20%. Largely **insensitive to sample dropout** (0.775 at 10%), which
-follows from clock-true resampling — dropout is exactly what it was built to
+follows from clock-true resampling - dropout is exactly what it was built to
 absorb.
 
-**Question answering** — ⚠️ **these numbers are stale.** They were generated at
+**Question answering** - ⚠️ **these numbers are stale.** They were generated at
 01:02 today, *before* the time-window fix, the SLM parser, and the 3B upgrade.
 `duration` and `count` in particular were measured while range qualifiers were
 still being silently dropped, so they understate current behaviour. **Re-run
@@ -433,7 +427,7 @@ still being silently dropped, so they understate current behaviour. **Re-run
 † measured before time windows were applied.
 
 *Grounded accuracy* requires the answer to be right **and** to cite the correct
-intervals — always lower than answer accuracy, and the stricter number to trust.
+intervals - always lower than answer accuracy, and the stricter number to trust.
 
 ---
 
@@ -444,7 +438,7 @@ intervals — always lower than answer accuracy, and the stricter number to trus
   sensitive to the 180 s merge gap; the reported count depends on that constant.
 - **The model stage is best-effort, not reliable.** 9/10 on obscure wording, and
   its failures are visible in the explanation rather than silent.
-- **`running` is rarely detected** in some recordings — the confusion matrix
+- **`running` is rarely detected** in some recordings - the confusion matrix
   shows near-zero recall for it on fold 0, reflecting genuine class scarcity.
 - **10 GB peak RSS** when the 3B model loads. Set
   `ASQA_SLM_MODEL=Qwen/Qwen2.5-0.5B-Instruct` where memory is binding, accepting

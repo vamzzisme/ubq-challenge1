@@ -1,16 +1,4 @@
-#!/usr/bin/env python3
-"""Tests for the dashboard's API contract.
-
-The important one is `test_ask_matches_the_cli_exactly`. A dashboard is only a
-demonstration of the system if it *is* the system; the moment it starts shaping
-its own answers it becomes a second implementation that drifts from the one being
-reported on. That test pins the API's answer to what `answer_question()` returns
-for the same input, so any divergence fails here rather than in a demo.
-
-These exercise the `Backend` directly rather than over HTTP: the routing is a
-dozen lines of stdlib, while the caching, model selection and payload shaping are
-where mistakes would actually hide.
-"""
+"""Tests for the dashboard's API contract."""
 
 from __future__ import annotations
 
@@ -53,19 +41,13 @@ def test_ui_file_exists_and_is_self_contained() -> None:
 
     assert UI_PATH.exists(), f"missing {UI_PATH}"
     html = UI_PATH.read_text(encoding="utf-8")
-    # Served from a local machine that may be offline; no external fetches.
     for forbidden in ("http://cdn", "https://cdn", "unpkg.com", "googleapis.com"):
         assert forbidden not in html, f"UI reaches out to {forbidden}; it must be self-contained"
     assert "/api/ask" in html and "/api/session" in html and "/api/users" in html
 
 
 def test_fold_selection_never_leaks(backend: Backend) -> None:
-    """A user must never be questioned with a model that trained on them.
-
-    For the held-out corpus this is trivially satisfied (no fold trained on any
-    of them); the check still matters whenever training users are served with
-    --training-users.
-    """
+    """A user must never be questioned with a model that trained on them."""
     for row in backend.users():
         if not row["trained_on"]:
             continue
@@ -124,7 +106,6 @@ def test_ask_returns_the_required_fields(backend: Backend, user: str) -> None:
     payload = backend.ask(user, "How long was the user walking?", use_slm=False)
     assert REQUIRED_ANSWER_FIELDS <= set(payload)
     assert REQUIRED_EVIDENCE_FIELDS <= set(payload["evidence"])
-    # `rendered` is what a grader reads; it must carry the brief's exact labels.
     for label in ("Answer:", "Activity/Event:", "Evidence:", "Timestamp(s):",
                   "Sensor Modality:", "Sensor Channel(s):", "Explanation:"):
         assert label in payload["rendered"], f"missing {label!r} in the rendered answer"

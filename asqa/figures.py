@@ -1,22 +1,4 @@
-#!/usr/bin/env python3
-"""The five figures the brief requires, drawn from committed evaluation artifacts.
-
-Nothing here computes a result.  Every number is read from `outputs/evaluation/`,
-so a figure cannot disagree with the table it illustrates, and regenerating the
-figures after a rerun is automatic rather than a second chance to draw something
-flattering.
-
-    1  accuracy by question type      qa_cv.json
-    2  activity confusion matrix      recognition_cv.json / decode_cv.json
-    3  accuracy versus strictness     qa_cv.json (IoU and tolerance sweeps)
-    4  accuracy versus overhead       benchmark.json
-    5  robustness under degradation   robustness.json
-
-Colour follows a validated categorical palette: hues are assigned in fixed slot
-order and never cycled, magnitude uses a single-hue blue ramp, and because three
-of the light-mode slots sit below 3:1 against the surface, every series carries a
-visible direct label rather than relying on colour alone.
-"""
+"""The five figures the brief requires, drawn from committed evaluation artifacts."""
 
 from __future__ import annotations
 
@@ -33,7 +15,6 @@ from matplotlib.colors import LinearSegmentedColormap
 
 from asqa import config
 
-# Validated categorical slots, in fixed order (see references/palette.md).
 SLOT = {
     "blue": "#2a78d6",
     "orange": "#eb6834",
@@ -46,7 +27,6 @@ INK = "#0b0b0b"
 INK_SECONDARY = "#52514e"
 GRID = "#dedcd6"
 
-# Single-hue sequential ramp for magnitude (never a rainbow).
 BLUE_RAMP = LinearSegmentedColormap.from_list(
     "asqa_blue", ["#fcfcfb", "#cde2fb", "#9ec5f4", "#5598e7", "#2a78d6", "#1c5cab", "#0d366b"]
 )
@@ -78,9 +58,6 @@ def _load(name: str) -> dict | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-# ── Figure 1 ─────────────────────────────────────────────────────────────────
-
-
 def figure_accuracy_by_question_type(output_dir: Path) -> None:
     data = _load("qa_cv.json")
     if data is None:
@@ -101,7 +78,6 @@ def figure_accuracy_by_question_type(output_dir: Path) -> None:
     bars_g = ax.bar(x + width / 2, grounded, width, label="Answer correct AND evidence valid",
                     color=SLOT["orange"], zorder=3)
 
-    # The palette's contrast warning obliges visible labels, not colour alone.
     for group in (bars_a, bars_g):
         for bar in group:
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.015,
@@ -129,9 +105,6 @@ def figure_accuracy_by_question_type(output_dir: Path) -> None:
     fig.savefig(output_dir / "fig1_accuracy_by_question_type.png", bbox_inches="tight")
     plt.close(fig)
     print("  fig1_accuracy_by_question_type.png")
-
-
-# ── Figure 2 ─────────────────────────────────────────────────────────────────
 
 
 def figure_confusion_matrix(output_dir: Path) -> None:
@@ -202,9 +175,6 @@ def figure_confusion_matrix(output_dir: Path) -> None:
     print("  fig2_confusion_matrix.png")
 
 
-# ── Figure 3 ─────────────────────────────────────────────────────────────────
-
-
 def figure_accuracy_vs_strictness(output_dir: Path) -> None:
     data = _load("qa_cv.json")
     if data is None:
@@ -213,7 +183,6 @@ def figure_accuracy_vs_strictness(output_dir: Path) -> None:
     iou = strictness["iou"]
     tolerance = strictness["numeric_tolerance"]
 
-    # Two measures on different x-scales get two panels, never two y-axes.
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.8))
 
     xs = [p["threshold"] for p in iou]
@@ -254,9 +223,6 @@ def figure_accuracy_vs_strictness(output_dir: Path) -> None:
     print("  fig3_accuracy_vs_strictness.png")
 
 
-# ── Figure 4 ─────────────────────────────────────────────────────────────────
-
-
 def figure_accuracy_vs_overhead(output_dir: Path) -> None:
     data = _load("benchmark.json")
     if data is None:
@@ -269,10 +235,6 @@ def figure_accuracy_vs_overhead(output_dir: Path) -> None:
         xs = np.asarray(xs, dtype=float)
         ys = np.asarray(ys, dtype=float)
 
-        # Pareto frontier for "cheaper is better, more accurate is better": walk
-        # the points from cheapest upward and keep each one that beats every
-        # cheaper alternative. A point is dominated when something costs less
-        # *and* scores higher.
         order = np.argsort(xs)
         frontier = []
         best = -np.inf
@@ -283,12 +245,8 @@ def figure_accuracy_vs_overhead(output_dir: Path) -> None:
         ax.plot(xs[frontier], ys[frontier], "--", color=SLOT["orange"], linewidth=1.8,
                 zorder=2, label="Pareto frontier")
 
-        # One hue plus direct labels: a scatter cannot carry many categorical
-        # colours and stay colour-blind safe.
         ax.scatter(xs, ys, s=130, color=SLOT["blue"], edgecolors=SURFACE, linewidth=2, zorder=4)
 
-        # Nudge labels apart when two points nearly coincide, so text never
-        # lands on top of other text.
         span_x = (xs.max() - xs.min()) or 1.0
         span_y = (ys.max() - ys.min()) or 1.0
         placed: list[tuple[float, float]] = []
@@ -324,7 +282,7 @@ def figure_accuracy_vs_overhead(output_dir: Path) -> None:
         note += (
             f"The open-world language model is reported separately and dominates: "
             f"{slm['parameters'] / 1e6:.0f}M parameters, {slm['peak_rss_mb']:.0f} MB peak RSS, "
-            f"{slm['latency_s_including_cold_start']:.1f} s per query including weight loading — "
+            f"{slm['latency_s_including_cold_start']:.1f} s per query including weight loading   "
             f"roughly {slm['latency_s_including_cold_start'] * 1000 / max(points[0]['median_ms'], 1e-6):,.0f}x "
             f"the cost of classifying a window."
         )
@@ -334,9 +292,6 @@ def figure_accuracy_vs_overhead(output_dir: Path) -> None:
     fig.savefig(output_dir / "fig4_accuracy_vs_overhead.png", bbox_inches="tight")
     plt.close(fig)
     print("  fig4_accuracy_vs_overhead.png")
-
-
-# ── Figure 5 ─────────────────────────────────────────────────────────────────
 
 
 def figure_robustness(output_dir: Path) -> None:
@@ -368,7 +323,7 @@ def figure_robustness(output_dir: Path) -> None:
         ax.yaxis.grid(True, zorder=0)
         ax.set_axisbelow(True)
         if key == "sample_rate":
-            ax.invert_xaxis()  # worsening conditions read left to right
+            ax.invert_xaxis()
     axes[0].set_ylabel("Per-window accuracy (decoded)")
 
     fig.suptitle("Robustness to degraded input", fontsize=13, y=1.03)

@@ -1,16 +1,4 @@
-#!/usr/bin/env python3
-"""Which `--fold` model is safe to use for a given user?
-
-Every fold's model was trained on some users and held others out.  Asking
-questions about a user with a model that trained on them measures memorisation,
-not generalisation, and quietly inflates the answer.  This prints, per fold,
-whether the user was held out (safe), used for validation, or trained on.
-
-    python tools/which_fold.py <USER-ID>
-    python tools/which_fold.py --list
-
-A user who is not in the corpus at all is safe with any fold.
-"""
+"""Which `--fold` model is safe to use for a given user?"""
 
 from __future__ import annotations
 
@@ -20,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from asqa.splits import load_folds  # noqa: E402
+from asqa.splits import load_folds
 
 
 def main() -> int:

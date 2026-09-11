@@ -1,22 +1,4 @@
-#!/usr/bin/env python3
-"""A local dashboard for exploring the system: pick a user, ask questions, see the evidence.
-
-Run it, open the printed URL, choose one of the preprocessed users, and chat with
-their recording. Every answer is clickable; clicking one highlights on a timeline
-ribbon exactly the intervals that answer cited.
-
-    python -m asqa.dashboard
-    python -m asqa.dashboard --port 8080 --open
-
-**This module contains no answering logic.** It is a thin transport over
-`Pipeline` and `answer_question`, for the same reason `slm.py` may not invent a
-timestamp: a dashboard that computed its own answers would stop demonstrating the
-system it claims to demonstrate, and would drift from it silently. If you find
-yourself wanting to reshape an answer here, change the interface layer instead.
-
-Bound to 127.0.0.1 — this loads models and reads local data, and is not meant to
-be exposed.
-"""
+"""A local dashboard for exploring the system: pick a user, ask questions, see the evidence."""
 
 from __future__ import annotations
 
@@ -39,27 +21,19 @@ from asqa.timeline import Timeline, load_timeline
 
 UI_PATH = Path(__file__).resolve().parent / "dashboard.html"
 
-# Colours for the seven activities, taken from the validated categorical palette
-# used by asqa/figures.py: fixed slot order, never cycled.
 ACTIVITY_COLOURS = {
-    "lying_down": "#4a3aa7",           # violet
-    "sitting": "#2a78d6",              # blue
-    "standing_in_place": "#1baf7a",    # aqua
-    "standing_and_moving": "#eda100",  # yellow
-    "walking": "#eb6834",              # orange
-    "running": "#e34948",              # red
-    "bicycling": "#e87ba4",            # magenta
+    "lying_down": "#4a3aa7",
+    "sitting": "#2a78d6",
+    "standing_in_place": "#1baf7a",
+    "standing_and_moving": "#eda100",
+    "walking": "#eb6834",
+    "running": "#e34948",
+    "bicycling": "#e87ba4",
 }
 
 
-# Recordings the dashboard offers by default: the held-out evaluation corpus,
-# whose users appear in no fold's training set. Showing training users here
-# would invite questioning a recording the model has already memorised, which
-# tells you nothing about how the system behaves on a new person.
 DEFAULT_CORPUS = config.DATA_DIR / "5 new users"
 
-# Which fold's model answers a never-seen user. No fold trained on them, so all
-# five are equally valid; fold 3 scored highest on this corpus (0.693).
 DEFAULT_FOLD = 3
 
 
@@ -86,22 +60,14 @@ class Backend:
         """Where to read this user's raw signal from."""
         if self.uses_corpus and (self.corpus / "acc" / user_id).is_dir():
             return self.corpus / "acc" / user_id
-        return user_id  # a preprocessed user id, resolved from the cache
+        return user_id
 
-    # ── model selection ──
 
     def fold_for(self, user_id: str) -> int:
-        """The fold that held this user out, so a model never sees its own training user.
-
-        Questioning a user with a model that trained on them measures memorisation
-        rather than generalisation. Choosing the fold here, rather than leaving it
-        to whoever opens the page, makes that mistake impossible to make by
-        accident. Same rule as `tools/which_fold.py`.
-        """
+        """The fold that held this user out, so a model never sees its own training user."""
         assigned = self.folds["assignment"].get(user_id)
         if assigned is not None:
             return int(assigned)
-        # Never seen in training at all: every fold is safe, so use the default.
         return self.default_fold
 
     def pipeline(self, fold: int) -> Pipeline:
@@ -110,7 +76,6 @@ class Backend:
                 self._pipelines[fold] = Pipeline(fold=fold)
             return self._pipelines[fold]
 
-    # ── timelines ──
 
     def _cache_path(self, user_id: str) -> Path:
         return config.TIMELINE_DIR / f"dash_{user_id}.json"
@@ -129,16 +94,9 @@ class Backend:
         self._timelines[user_id] = timeline
         return timeline
 
-    # ── API payloads ──
 
     def users(self) -> list[dict[str, Any]]:
-        """The selectable recordings.
-
-        When a held-out corpus is present these are the only users offered, and
-        every one of them is unseen by every model. Training users are
-        deliberately absent: a recording the model memorised would answer well
-        and mean nothing.
-        """
+        """The selectable recordings."""
         from asqa.preprocess import cached_users
 
         counts = self.folds.get("class_counts", {})
@@ -149,8 +107,6 @@ class Backend:
             trained_on = user_id in self.folds["assignment"]
             cached = user_id in self._timelines or self._cache_path(user_id).exists()
 
-            # A built timeline gives real numbers; otherwise fall back to the
-            # label distribution (training users) or the raw file count.
             if cached:
                 timeline = self.timeline(user_id)
                 windows = len(timeline.windows)
@@ -183,12 +139,7 @@ class Backend:
         return len(list(directory.glob("*.dat"))) if directory.is_dir() else 0
 
     def session(self, user_id: str) -> dict[str, Any]:
-        """Timeline summary and intervals. Per-window detail is deliberately omitted.
-
-        A full timeline serialises to about 1 MB, almost all of it per-window
-        rows; the intervals alone are ~20 KB and already carry the signal values
-        the ribbon's tooltips need.
-        """
+        """Timeline summary and intervals. Per-window detail is deliberately omitted."""
         started = time.perf_counter()
         timeline = self.timeline(user_id)
         payload = timeline.to_dict()
@@ -224,11 +175,10 @@ class Backend:
 class Handler(BaseHTTPRequestHandler):
     backend: Backend
 
-    def log_message(self, fmt: str, *args: Any) -> None:  # quieter console
+    def log_message(self, fmt: str, *args: Any) -> None:
         if "/api/" in str(args[0] if args else ""):
             sys.stderr.write(f"  {args[0]}\n")
 
-    # ── helpers ──
 
     def _send(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
@@ -245,18 +195,13 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(length) or b"{}")
 
-    # ── routes ──
 
     @property
     def route(self) -> str:
-        """The path with any query string removed.
-
-        `self.path` includes the query, so routing on it directly 404s a
-        perfectly ordinary deep link such as `/?user=0A986513`.
-        """
+        """The path with any query string removed."""
         return urlparse(self.path).path
 
-    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler's naming
+    def do_GET(self) -> None:
         if self.route in ("/", "/index.html"):
             try:
                 self._send(200, UI_PATH.read_bytes(), "text/html; charset=utf-8")
@@ -267,7 +212,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._json({"error": "not found"}, 404)
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         try:
             body = self._body()
         except json.JSONDecodeError:
@@ -291,7 +236,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": "not found"}, 404)
         except FileNotFoundError as exc:
             self._json({"error": str(exc)}, 404)
-        except Exception as exc:  # noqa: BLE001 - surface the failure in the UI
+        except Exception as exc:
             self._json({"error": f"{type(exc).__name__}: {exc}"}, 500)
 
 

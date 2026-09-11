@@ -1,21 +1,4 @@
-#!/usr/bin/env python3
-"""Ask the Sensors -- answer questions about a wearable recording.
-
-This is the runnable system the challenge asks for: given a recording and a set
-of questions, it emits one structured answer per question in the required
-format.
-
-    python run.py --recording <path|user-id> --questions questions.txt
-    python run.py --recording <path|user-id> --question "How long was the user walking?"
-
-`--recording` accepts any of:
-    * a directory of raw `<timestamp>.m_raw_acc.dat` files (the gyroscope
-      partner directory is located automatically)
-    * a single `.m_raw_acc.dat` file, for a one-window question
-    * an ExtraSensory user id already in the preprocessing cache
-
-Timestamps in every answer are **seconds from the start of the recording**.
-"""
+"""Ask the Sensors answer questions about a wearable recording."""
 
 from __future__ import annotations
 

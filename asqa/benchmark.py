@@ -1,25 +1,4 @@
-#!/usr/bin/env python3
-"""Resource cost, and the accuracy-versus-overhead trade-off.
-
-The brief asks for model size in parameters and on disk, peak memory during
-inference, and time to answer a single query, measured on a stated target.  It
-also offers extra credit for showing the *shape* of the trade-off across at
-least two operating points rather than asserting that a model is small.
-
-Operating points measured here, all sharing the same feature and decoding
-layers so that only the recogniser changes:
-
-    full        the deployed hierarchical XGBoost, context-aware
-    shallow     the same design at depth 3 with a quarter of the trees
-    pruned      full, with features below an importance floor removed
-    context-free  no temporal context: 40 features instead of 103
-    slm         the Qwen2.5-0.5B open-world component, measured separately
-                because it dominates and folding it into an average would hide
-                that a single Task 4 query costs more than the entire
-                classification pipeline
-
-Target hardware is recorded in the output so the numbers are interpretable.
-"""
+"""Resource cost, and the accuracy-versus-overhead trade-off."""
 
 from __future__ import annotations
 
@@ -40,7 +19,6 @@ from asqa import config, context, features as feat
 
 def peak_rss_mb() -> float:
     usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # Linux reports kilobytes, macOS bytes.
     return usage / (1024 * 1024) if sys.platform == "darwin" else usage / 1024
 
 
@@ -61,7 +39,7 @@ def count_parameters(model) -> int:
         try:
             frame = stage.get_booster().trees_to_dataframe()
             total += len(frame)
-        except Exception:  # noqa: BLE001 - fall back to a coarse estimate
+        except Exception:
             total += int(getattr(stage, "n_estimators", 0)) * 2 ** int(getattr(stage, "max_depth", 0) or 6)
     return total
 
@@ -69,7 +47,7 @@ def count_parameters(model) -> int:
 def measure_latency(model, X: np.ndarray, repeats: int = 30) -> dict[str, float]:
     """Latency for one window's worth of classification, in milliseconds."""
     single = X[:1]
-    model.predict_proba(single)  # warm up
+    model.predict_proba(single)
     timings = []
     for _ in range(repeats):
         started = time.perf_counter()
@@ -192,7 +170,7 @@ def main() -> int:
         scores = getattr(stage, "feature_importances_", None)
         if scores is not None and len(scores) == len(importance):
             importance += scores
-    keep = importance >= np.percentile(importance, 40)  # drop the least useful 40%
+    keep = importance >= np.percentile(importance, 40)
     pruned = train(Xc_train[:, keep], y_train, Xc_val[:, keep], y_val)
     record("pruned", pruned, Xc_test[:, keep], f"{int(keep.sum())} of {len(keep)} features retained")
 

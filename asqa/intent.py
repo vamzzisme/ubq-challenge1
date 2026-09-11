@@ -1,20 +1,4 @@
-#!/usr/bin/env python3
-"""What a question is asking for, separated from how it was worded.
-
-Splitting intent out from the handlers buys two things.
-
-The first is **time windows**.  "How long was the user walking *after 84 hours*"
-was previously parsed as far as the number 302400 and then the constraint was
-silently dropped, so the answer covered the whole recording.  A window is now a
-first-class part of the request and every handler applies it.
-
-The second is **a target for the language model**.  A 0.5B model is poor at
-judging what a person did, but good at mapping "anything tiring?" onto
-`operation=verification, group=active`.  Producing an `Intent` is a job it can
-do safely: the intent names an operation and a class, never a number or a
-timestamp, so the answer is still computed from the timeline.  An intent that
-names something outside these vocabularies is rejected rather than guessed at.
-"""
+"""What a question is asking for, separated from how it was worded."""
 
 from __future__ import annotations
 
@@ -28,12 +12,7 @@ from asqa.timeline import Interval
 
 @dataclass(frozen=True)
 class TimeWindow:
-    """A span of the recording, in seconds from its start.
-
-    Either bound may be None, meaning "open in that direction".  `from_end`
-    marks a window expressed relative to the end ("the last two hours"), which
-    can only be resolved once the recording's duration is known.
-    """
+    """A span of the recording, in seconds from its start."""
 
     start_s: float | None = None
     end_s: float | None = None
@@ -70,10 +49,8 @@ class Intent:
     window: TimeWindow | None = None
     at_time_s: float | None = None
     group: str | None = None
-    source: str = "rules"  # "rules" or "language-model"
+    source: str = "rules"
 
-
-# ── Units ────────────────────────────────────────────────────────────────────
 
 _UNITS = (
     (r"hours?|hrs?\b|h\b", 3600.0),
@@ -96,11 +73,7 @@ def _quantity(text: str) -> float | None:
 
 
 def find_window(question: str) -> TimeWindow | None:
-    """Parse a range qualifier, if the question carries one.
-
-    Handles: after/past/beyond X, before/within/under X, between X and Y,
-    the first X, the last X.
-    """
+    """Parse a range qualifier, if the question carries one."""
     lower = question.lower()
 
     match = re.search(
@@ -108,7 +81,6 @@ def find_window(question: str) -> TimeWindow | None:
     )
     if match:
         low, high = _quantity(match.group(1)), _quantity(match.group(2))
-        # "between 10 and 20 hours" leaves the unit off the first number.
         if low is None and high is not None:
             number = re.search(r"(\d+(?:\.\d+)?)", match.group(1))
             unit = high / float(re.search(r"(\d+(?:\.\d+)?)", match.group(2)).group(1))
@@ -135,18 +107,8 @@ def find_window(question: str) -> TimeWindow | None:
     return None
 
 
-# ── Applying a window to evidence ────────────────────────────────────────────
-
-
 def clip(intervals: Iterable[Interval], window: TimeWindow | None, duration_s: float) -> list[Interval]:
-    """Restrict intervals to a window, trimming those that straddle its edge.
-
-    Trimming rather than filtering matters: a walk from 80 h to 90 h contributes
-    only its post-84 h portion to "how long after 84 hours", and citing the
-    whole bout as evidence would overstate what the window contains.  Observed
-    time is scaled by the same proportion, since sampling is uniform within a
-    bout.
-    """
+    """Restrict intervals to a window, trimming those that straddle its edge."""
     if window is None:
         return list(intervals)
 
@@ -175,19 +137,11 @@ def clip(intervals: Iterable[Interval], window: TimeWindow | None, duration_s: f
     return out
 
 
-# ── Validating a language model's proposal ───────────────────────────────────
-
 OPERATIONS = ("identification", "verification", "duration", "count", "comparison", "temporal")
 
 
 def from_payload(payload: dict, fallback_question: str = "") -> Intent | None:
-    """Build an Intent from a model's JSON, or None if it is not usable.
-
-    Every field is checked against a closed vocabulary.  The model may pick an
-    operation and name activities; it may not invent either, and it is never
-    trusted for times -- those are re-read from the question by the rules, which
-    do not hallucinate.
-    """
+    """Build an Intent from a model's JSON, or None if it is not usable."""
     operation = str(payload.get("operation", "")).strip().lower().replace(" ", "_")
     if operation not in OPERATIONS:
         return None
@@ -211,7 +165,7 @@ def from_payload(payload: dict, fallback_question: str = "") -> Intent | None:
         group = None
 
     if operation != "identification" and not activities:
-        return None  # nothing to operate on
+        return None
 
     return Intent(
         operation=operation,

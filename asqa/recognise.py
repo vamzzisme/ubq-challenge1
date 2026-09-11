@@ -1,29 +1,4 @@
-#!/usr/bin/env python3
-"""L2 -- hierarchical activity recognition with XGBoost.
-
-A flat seven-way classifier cannot survive this label distribution: running is
-0.2% of the data and bicycling under 2%, so a flat model minimises its loss by
-never predicting either.  The previous implementation's CNN did exactly that,
-scoring 0.00 F1 on both while also never predicting `sitting`.
-
-The recogniser is therefore a three-node tree, and each node asks a question
-that a person can check against the signal:
-
-                      is the body moving?          (body-acc energy)
-                     /                    \\
-        which posture?                      which gait?
-    (gravity direction)                 (cadence, impact sharpness)
-    lying / sitting /                   standing+moving / walking /
-    standing in place                   running / bicycling
-
-Each node sees a far more balanced problem than the flat alternative, and each
-node's decision variable is a nameable physical quantity, which is what lets the
-interface layer explain an answer instead of asserting it.
-
-Probabilities are chained (`P(leaf) = P(branch) * P(leaf | branch)`) and then
-calibrated, because the HMM decoder downstream consumes them as likelihoods and
-boosted trees are systematically over-confident.
-"""
+"""L2 hierarchical activity recognition with XGBoost."""
 
 from __future__ import annotations
 
@@ -42,9 +17,6 @@ from xgboost import XGBClassifier
 from asqa import config, context, features as feat
 from asqa.preprocess import cached_users, load_cached
 from asqa.splits import load_folds
-
-
-# ── Feature cache ────────────────────────────────────────────────────────────
 
 
 def feature_cache_path(user_id: str) -> Path:
@@ -67,11 +39,7 @@ def build_features(user_id: str, overwrite: bool = False) -> tuple[np.ndarray, n
 
 
 def build_context_features(user_id: str, overwrite: bool = False) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Context-augmented features for one user, cached to disk.
-
-    Augmentation is O(windows x radius) per channel and every fold re-reads the
-    same users, so it is computed once per user and reused.
-    """
+    """Context-augmented features for one user, cached to disk."""
     path = config.CACHE_DIR / "context" / f"{user_id}.npz"
     if path.exists() and not overwrite:
         with np.load(path, allow_pickle=False) as data:
@@ -87,12 +55,7 @@ def build_context_features(user_id: str, overwrite: bool = False) -> tuple[np.nd
 def load_users(
     user_ids: list[str], with_context: bool = False
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Concatenate features for several users, tracking who each row came from.
-
-    Context is applied *per user, before* concatenation.  Augmenting the stacked
-    matrix instead would let one person's windows supply another person's
-    context -- a leak that would inflate every number reported here.
-    """
+    """Concatenate features for several users, tracking who each row came from."""
     Xs, ys, ts, owners = [], [], [], []
     for user_id in user_ids:
         if with_context:
@@ -106,23 +69,9 @@ def load_users(
     return np.vstack(Xs), np.concatenate(ys), np.concatenate(ts), np.concatenate(owners)
 
 
-# ── The derived seventh class ────────────────────────────────────────────────
-
-
 @dataclass
 class StandingSplit:
-    """Threshold separating standing in place from standing and moving.
-
-    ExtraSensory annotates a single `OR_standing` label, but the brief asks for
-    two standing classes.  Rather than invent an annotation, the split is made
-    on measured body-acceleration energy: a two-component Gaussian mixture is
-    fitted to the standing windows of the *training* users only, and the
-    resulting threshold is frozen and applied unchanged to validation and test.
-
-    This is a derived label, not ground truth.  Rows produced by it carry
-    `PROVENANCE_DERIVED` so the report can score the two standing classes
-    separately from the five annotated ones.
-    """
+    """Threshold separating standing in place from standing and moving."""
 
     threshold: float
     n_fitted: int
@@ -145,18 +94,12 @@ def fit_standing_split(X: np.ndarray, labels: np.ndarray, seed: int = 42) -> Sta
     if len(energy) < 20:
         return StandingSplit(threshold=float(np.median(energy)) if len(energy) else 0.0, n_fitted=len(energy))
 
-    # Energy is heavily right-skewed; fit in log space so the two modes are
-    # roughly Gaussian.
     log_energy = np.log10(energy + 1e-6)
     mixture = GaussianMixture(n_components=2, random_state=seed, n_init=3).fit(log_energy)
     order = np.argsort(mixture.means_.ravel())
     low, high = mixture.means_.ravel()[order]
-    # Midpoint between the two component means, in log space.
     threshold = float(10 ** ((low + high) / 2) - 1e-6)
     return StandingSplit(threshold=threshold, n_fitted=len(energy))
-
-
-# ── The hierarchical model ───────────────────────────────────────────────────
 
 
 def _xgb(n_classes: int, seed: int, depth: int, estimators: int) -> XGBClassifier:
@@ -194,7 +137,6 @@ class Recogniser:
     standing_split: StandingSplit
     temperature: float = 1.0
 
-    # ── prediction ──
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """Return calibrated `P(activity | window)` as (N, 7) in ACTIVITIES order."""
@@ -232,13 +174,11 @@ def train(
 
     static_set, dynamic_set = set(config.STATIC_ACTIVITIES), set(config.DYNAMIC_ACTIVITIES)
 
-    # Stage 1 -- is the body moving?
     b_train = np.isin(y_train, list(dynamic_set)).astype(int)
     b_val = np.isin(y_val, list(dynamic_set)).astype(int)
     stage1 = _xgb(2, seed, depth, estimators)
     stage1.fit(X_train, b_train, sample_weight=_weights(b_train), eval_set=[(X_val, b_val)], verbose=False)
 
-    # Stage 2a -- which posture, among the static windows?
     static_mask = np.isin(y_train, list(static_set))
     static_val_mask = np.isin(y_val, list(static_set))
     static_classes = sorted(set(y_train[static_mask]), key=lambda a: config.ACTIVITY_INDEX[a])
@@ -251,7 +191,6 @@ def train(
         verbose=False,
     )
 
-    # Stage 2b -- which gait, among the moving windows?
     dynamic_mask = np.isin(y_train, list(dynamic_set))
     dynamic_val_mask = np.isin(y_val, list(dynamic_set))
     dynamic_classes = sorted(set(y_train[dynamic_mask]), key=lambda a: config.ACTIVITY_INDEX[a])
@@ -283,19 +222,8 @@ def _apply_temperature(probabilities: np.ndarray, temperature: float) -> np.ndar
 
 
 def _fit_temperature(model: Recogniser, X_val: np.ndarray, y_val: np.ndarray) -> float:
-    """Fit one scalar temperature on held-out users by minimising NLL.
-
-    Boosted trees are over-confident, and the HMM decoder downstream reads these
-    numbers as likelihoods: an uncalibrated spike lets a single window override
-    the temporal prior.  Temperature scaling is used rather than the more usual
-    one-vs-rest isotonic fit because it is *monotonic and rank-preserving*.
-    Per-class isotonic calibration was measured to be actively harmful here: it
-    maps a rare class's scores toward its low base rate, and after renormalising
-    the class can no longer win an argmax.  Bicycling F1 fell from 0.66 to 0.00
-    under isotonic while overall macro-F1 fell from 0.372 to 0.267, so the whole
-    approach was discarded in favour of this single parameter.
-    """
-    raw = model.predict_proba(X_val)  # temperature is still 1.0 here
+    """Fit one scalar temperature on held-out users by minimising NLL."""
+    raw = model.predict_proba(X_val)
     truth = np.array([config.ACTIVITY_INDEX.get(label, -1) for label in y_val])
     valid = truth >= 0
     raw, truth = raw[valid], truth[valid]
@@ -310,9 +238,6 @@ def _fit_temperature(model: Recogniser, X_val: np.ndarray, y_val: np.ndarray) ->
 
     result = minimize_scalar(negative_log_likelihood, bounds=(0.25, 5.0), method="bounded")
     return float(result.x) if result.success else 1.0
-
-
-# ── Evaluation ───────────────────────────────────────────────────────────────
 
 
 def evaluate(model: Recogniser, X: np.ndarray, y_coarse: np.ndarray) -> dict:
@@ -331,15 +256,7 @@ def evaluate(model: Recogniser, X: np.ndarray, y_coarse: np.ndarray) -> dict:
 
 
 def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) -> dict:
-    """Train the context-free and context-aware recognisers for one fold.
-
-    Both are kept.  Temporal context is worth roughly nine accuracy points on
-    full recordings, but a context-aware model handed a *single* window has no
-    neighbours to read and scores worse than the context-free one (measured:
-    0.431 against 0.444).  Task 1 asks about exactly that single-window case
-    while Tasks 2-4 supply whole recordings, so the interface layer routes to
-    whichever model matches the input it was actually given.
-    """
+    """Train the context-free and context-aware recognisers for one fold."""
     split = folds["splits"][str(fold_index)]
     metrics: dict = {"fold": fold_index, "split": split}
     trained: dict[str, Recogniser] = {}
@@ -367,7 +284,6 @@ def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) ->
             f"accuracy {result['accuracy']:.3f}  macro-F1 {result['macro_f1']:.3f}"
         )
 
-    # The Task 1 guard: how the context-aware model behaves with no neighbours.
     X_test_plain, y_test_plain, _, _ = load_users(split["test"], with_context=False)
     isolated = context.augment_isolated(X_test_plain)
     truth, _ = trained["context_aware"].standing_split.apply(isolated, y_test_plain)
@@ -379,7 +295,6 @@ def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) ->
         f"(vs context_free {metrics['context_free']['accuracy']:.3f})"
     )
 
-    # Kept flat for backwards compatibility with the earlier single-model runs.
     metrics.update({k: v for k, v in metrics["context_free"].items() if k != "split"})
 
     if save:
@@ -388,7 +303,7 @@ def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) ->
             {
                 "context_free": trained["context_free"],
                 "context_aware": trained["context_aware"],
-                "model": trained["context_free"],  # legacy key
+                "model": trained["context_free"],
                 "feature_names": feat.FEATURE_NAMES,
                 "feature_names_context": context.FEATURE_NAMES_FULL,
                 "activities": config.ACTIVITIES,
@@ -453,9 +368,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    # Import through the package rather than calling the local `main`, so any
-    # object pickled here records its class as `asqa.recognise.X` and not
-    # `__main__.X` -- the latter cannot be unpickled by any other entry point.
     from asqa.recognise import main as _main
 
     raise SystemExit(_main())

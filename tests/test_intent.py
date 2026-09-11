@@ -1,16 +1,4 @@
-#!/usr/bin/env python3
-"""Tests for time windows and for validating what the language model proposes.
-
-Two things are guarded here.
-
-A window must actually *restrict* the answer. "How long was the user walking
-after 84 hours" previously parsed the number and then dropped it, so the answer
-silently covered the whole recording — a wrong answer that looked authoritative.
-
-And the model's proposal must be validated against a closed vocabulary. The
-0.5B model was measured returning `"jogging"`, a word that is not a class; the
-validator must either canonicalise it or drop it, never pass it through.
-"""
+"""Tests for time windows and for validating what the language model proposes."""
 
 from __future__ import annotations
 
@@ -35,9 +23,6 @@ def _timeline() -> Timeline:
     return Timeline(config.TIME_BASE, 0, 6 * HOUR, windows, intervals, sum(15.0 for _ in windows))
 
 
-# ── parsing ──
-
-
 def test_after() -> None:
     w = find_window("How long was the user walking after 84 hours?")
     assert w is not None and w.start_s == 84 * HOUR and w.end_s is None
@@ -59,7 +44,6 @@ def test_first_and_last() -> None:
 
     last = find_window("What was he doing in the last 3 hours?")
     assert last is not None and last.from_end
-    # Only resolvable once the recording length is known.
     assert last.resolve(10 * HOUR).start_s == 7 * HOUR
 
 
@@ -72,9 +56,6 @@ def test_minutes_and_seconds() -> None:
     assert find_window("after 300 seconds").start_s == 300
 
 
-# ── clipping ──
-
-
 def test_clip_trims_a_straddling_interval() -> None:
     """A bout crossing the boundary contributes only its in-window part."""
     interval = Interval("walking", 0.0, 1000.0, 500.0, 10, 0.9, {})
@@ -82,16 +63,12 @@ def test_clip_trims_a_straddling_interval() -> None:
     assert len(out) == 1
     assert out[0].start_s == 600.0 and out[0].end_s == 1000.0
     assert out[0].duration_s == 400.0
-    # Observed time scales with the kept fraction, not the whole bout.
     assert abs(out[0].observed_s - 200.0) < 1.0
 
 
 def test_clip_drops_intervals_outside() -> None:
     interval = Interval("walking", 0.0, 500.0, 250.0, 5, 0.9, {})
     assert clip([interval], TimeWindow(start_s=600.0), 2000.0) == []
-
-
-# ── end to end ──
 
 
 def test_window_restricts_a_duration_answer() -> None:
@@ -121,26 +98,16 @@ def test_tiring_reaches_the_active_group_without_a_model() -> None:
     assert set(intent.activities) == {"walking", "running", "bicycling"}
 
 
-# ── validating the model's proposal ──
-
-
 def test_model_words_are_canonicalised_or_dropped() -> None:
     from asqa.answer import find_activities
 
-    # The 0.5B model really does return these instead of the class names.
     assert find_activities("jogging") == ["running"]
     assert find_activities("cycling") == ["bicycling"]
-    # And a word that means nothing here resolves to nothing.
     assert find_activities("gardening") == []
 
 
 def test_model_morphology_is_tolerated() -> None:
-    """The model emits variants of its own vocabulary; those are not nonsense.
-
-    Measured: asked about "did the user wander after 84h?" the 0.5B model
-    returned activities=["wandering"] and group="activity". Both were correct in
-    substance and both were being discarded, so a right answer became "N/A".
-    """
+    """The model emits variants of its own vocabulary; those are not nonsense."""
     from asqa.answer import resolve_activity_word, resolve_group_word
 
     assert resolve_activity_word("wandering") == "walking"
