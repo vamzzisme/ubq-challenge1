@@ -1,0 +1,327 @@
+{
+  "098A72A5-E3E5-4F54-A152-BBDA0DF7B694": {
+    "diagnostics": {
+      "overlap_s": 21.5078297654242,
+      "acc_span_s": 25.510881427172684,
+      "gyro_span_s": 21.507899825884707,
+      "acc_effective_hz": 31.37025624096025,
+      "gyro_effective_hz": 37.19563933293276,
+      "kept": 5465,
+      "candidates": 5468
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 1340,
+      "gap_too_large": 3
+    }
+  },
+  "1155FF54-63D3-4AB2-9863-8385D0BD0A13": {
+    "diagnostics": {
+      "overlap_s": 15.860900910379929,
+      "acc_span_s": 15.94017062775071,
+      "gyro_span_s": 15.860909189124058,
+      "acc_effective_hz": 50.18771294748126,
+      "gyro_effective_hz": 50.208787146895894,
+      "kept": 2681,
+      "candidates": 2681
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 4
+    }
+  },
+  "1538C99F-BA1E-4EFB-A949-6C7C47701B20": {
+    "diagnostics": {
+      "overlap_s": 19.979984963642273,
+      "acc_span_s": 23.316488799568603,
+      "gyro_span_s": 19.980101334509392,
+      "acc_effective_hz": 34.31448541002338,
+      "gyro_effective_hz": 40.03984463866988,
+      "kept": 6412,
+      "candidates": 6426
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 123,
+      "gap_too_large": 14
+    }
+  },
+  "33A85C34-CFE4-4732-9E73-0A7AC861B27A": {
+    "diagnostics": {
+      "overlap_s": 16.052058537074295,
+      "acc_span_s": 16.108640303932738,
+      "gyro_span_s": 20.097092574043725,
+      "acc_effective_hz": 49.66390895599307,
+      "gyro_effective_hz": 39.816428883473286,
+      "kept": 4755,
+      "candidates": 4794
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 1370,
+      "gap_too_large": 32,
+      "insufficient_overlap": 7
+    }
+  },
+  "3600D531-0C55-44A7-AE95-A7A38519464E": {
+    "diagnostics": {
+      "overlap_s": 21.16124997516396,
+      "acc_span_s": 23.483655539596217,
+      "gyro_span_s": 21.161323410986427,
+      "acc_effective_hz": 34.06879097423267,
+      "gyro_effective_hz": 37.80485352356471,
+      "kept": 3763,
+      "candidates": 3768
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 1435,
+      "gap_too_large": 5
+    }
+  },
+  "40E170A7-607B-4578-AF04-F021C3B0384A": {
+    "diagnostics": {
+      "overlap_s": 15.839924000001702,
+      "acc_span_s": 15.97992400000112,
+      "gyro_span_s": 15.839924000001702,
+      "acc_effective_hz": 50.06281631877248,
+      "gyro_effective_hz": 33.396624882792565,
+      "kept": 1,
+      "candidates": 7123
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 525,
+      "insufficient_overlap": 7120,
+      "gap_too_large": 2
+    }
+  },
+  "481F4DD2-7689-43B9-A2AA-C8772227162B": {
+    "diagnostics": {
+      "overlap_s": 16.537624867358552,
+      "acc_span_s": 16.583388128956617,
+      "gyro_span_s": 16.541071246119586,
+      "acc_effective_hz": 48.410284736566794,
+      "gyro_effective_hz": 39.75493687239659,
+      "kept": 5742,
+      "candidates": 6055
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 635,
+      "gap_too_large": 306,
+      "insufficient_overlap": 7
+    }
+  },
+  "5119D0F8-FCA8-4184-A4EB-19421A40DE0D": {
+    "diagnostics": {
+      "overlap_s": 21.138511755092814,
+      "acc_span_s": 23.858000522186355,
+      "gyro_span_s": 21.138546428034843,
+      "acc_effective_hz": 33.5425114058735,
+      "gyro_effective_hz": 37.84557606177411,
+      "kept": 5989,
+      "candidates": 6004
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 613,
+      "gap_too_large": 15
+    }
+  },
+  "5152A2DF-FAF3-4BA8-9CA9-E66B32671A53": {
+    "diagnostics": {
+      "overlap_s": 19.96854750225789,
+      "acc_span_s": 23.10841005043716,
+      "gyro_span_s": 19.968824854333068,
+      "acc_effective_hz": 34.62539911476376,
+      "gyro_effective_hz": 40.062463042362424,
+      "kept": 6385,
+      "candidates": 6387
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 230,
+      "gap_too_large": 2
+    }
+  },
+  "59818CD2-24D7-4D32-B133-24C2FE3801E5": {
+    "diagnostics": {
+      "overlap_s": 15.66030867997318,
+      "acc_span_s": 15.928219808867485,
+      "gyro_span_s": 15.66030867997318,
+      "acc_effective_hz": 50.22536680653636,
+      "gyro_effective_hz": 50.184536143900914,
+      "kept": 2806,
+      "candidates": 2807
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 3139,
+      "insufficient_overlap": 1
+    }
+  },
+  "59EEFAE0-DEB0-4FFF-9250-54D2A03D0CF2": {
+    "diagnostics": {
+      "overlap_s": 17.3062270889622,
+      "acc_span_s": 17.51049344353964,
+      "gyro_span_s": 17.30741614154346,
+      "acc_effective_hz": 45.93715761613101,
+      "gyro_effective_hz": 40.48701768924327,
+      "kept": 7242,
+      "candidates": 7496
+    },
+    "rejections": {
+      "no_gyro_pair": 1,
+      "unlabelled": 40,
+      "insufficient_overlap": 244,
+      "gap_too_large": 10
+    }
+  },
+  "61976C24-1C50-4355-9C49-AAE44A7D09F6": {
+    "diagnostics": {
+      "overlap_s": 21.532278043363796,
+      "acc_span_s": 23.665812885967142,
+      "gyro_span_s": 21.532434975609995,
+      "acc_effective_hz": 33.804751272244175,
+      "gyro_effective_hz": 37.15330118563008,
+      "kept": 5718,
+      "candidates": 5741
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 2989,
+      "gap_too_large": 23
+    }
+  },
+  "74B86067-5D4B-43CF-82CF-341B76BEA0F4": {
+    "diagnostics": {
+      "overlap_s": 15.873618971723323,
+      "acc_span_s": 15.9321216258166,
+      "gyro_span_s": 15.934669191325666,
+      "acc_effective_hz": 50.21307441086973,
+      "gyro_effective_hz": 50.20500547342988,
+      "kept": 6815,
+      "candidates": 6840
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 427,
+      "insufficient_overlap": 25
+    }
+  },
+  "78A91A4E-4A51-4065-BDA7-94755F0BB3BB": {
+    "diagnostics": {
+      "overlap_s": 19.99120209179368,
+      "acc_span_s": 23.484566184118137,
+      "gyro_span_s": 19.991295338153055,
+      "acc_effective_hz": 34.07072837833583,
+      "gyro_effective_hz": 40.01742083744752,
+      "kept": 8309,
+      "candidates": 8315
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 3681,
+      "gap_too_large": 6
+    }
+  },
+  "797D145F-3858-4A7F-A7C2-A4EB721E133C": {
+    "diagnostics": {
+      "overlap_s": 17.55601193733083,
+      "acc_span_s": 17.687257127915135,
+      "gyro_span_s": 17.574186691262167,
+      "acc_effective_hz": 45.58979886641944,
+      "gyro_effective_hz": 40.16004487483116,
+      "kept": 2839,
+      "candidates": 2839
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 754
+    }
+  },
+  "8023FE1A-D3B0-4E2C-A57A-9321B7FC755F": {
+    "diagnostics": {
+      "overlap_s": 21.02982144965191,
+      "acc_span_s": 23.985092271613503,
+      "gyro_span_s": 21.02984667366506,
+      "acc_effective_hz": 33.35700167473442,
+      "gyro_effective_hz": 38.04117614590822,
+      "kept": 7794,
+      "candidates": 7836
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 1353,
+      "gap_too_large": 42
+    }
+  },
+  "83CF687B-7CEC-434B-9FE8-00C3D5799BE6": {
+    "diagnostics": {
+      "overlap_s": 19.969142056857397,
+      "acc_span_s": 22.999608136847264,
+      "gyro_span_s": 19.96925296627564,
+      "acc_effective_hz": 34.78901223840936,
+      "gyro_effective_hz": 40.061728658732356,
+      "kept": 8887,
+      "candidates": 8890
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 649,
+      "gap_too_large": 3
+    }
+  },
+  "86A4F379-B305-473D-9D83-FC7D800180EF": {
+    "diagnostics": {
+      "overlap_s": 15.93720816866441,
+      "acc_span_s": 15.97719430798749,
+      "gyro_span_s": 19.74159043502721,
+      "acc_effective_hz": 50.17086328886059,
+      "gyro_effective_hz": 40.52582535943388,
+      "kept": 4397,
+      "candidates": 4406
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 6310,
+      "gap_too_large": 5,
+      "insufficient_overlap": 4
+    }
+  },
+  "96A358A0-FFF2-4239-B93E-C7425B901B47": {
+    "diagnostics": {
+      "overlap_s": 15.866716426018892,
+      "acc_span_s": 16.09064732522546,
+      "gyro_span_s": 15.866836478639453,
+      "acc_effective_hz": 49.718429555493955,
+      "gyro_effective_hz": 40.02467759793818,
+      "kept": 1331,
+      "candidates": 1654
+    },
+    "rejections": {
+      "no_gyro_pair": 128,
+      "unlabelled": 3842,
+      "insufficient_overlap": 314,
+      "gap_too_large": 9
+    }
+  },
+  "99B204C0-DD5C-4BB7-83E8-A37281B8D769": {
+    "diagnostics": {
+      "overlap_s": 16.309722141325356,
+      "acc_span_s": 16.405169192362646,
+      "gyro_span_s": 19.63723117124954,
+      "acc_effective_hz": 48.92686557258187,
+      "gyro_effective_hz": 39.714532115352704,
+      "kept": 5034,
+      "candidates": 5484
+    },
+    "rejections": {
+      "no_gyro_pair": 0,
+      "unlabelled": 543,
+      "gap_too_large": 447,
+      "insufficient_overlap": 3
+    }
+  }
+}

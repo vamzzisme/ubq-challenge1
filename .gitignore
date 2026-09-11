@@ -42,22 +42,3 @@ artifacts/rf_medium/*
 artifacts/timelines/*
 !artifacts/timelines/.gitkeep
 
-# New pipeline outputs (regenerable; keep the folder layout + frozen fold assignment)
-outputs/*
-!outputs/.gitkeep
-!outputs/folds.json
-!outputs/evaluation/
-outputs/evaluation/*
-!outputs/evaluation/.gitkeep
-!outputs/evaluation/*.json
-!outputs/evaluation/*.txt
-!outputs/figures/
-outputs/figures/*
-!outputs/figures/.gitkeep
-!outputs/figures/*.png
-!outputs/models/
-outputs/models/*
-!outputs/models/.gitkeep
-!outputs/timelines/
-outputs/timelines/*
-!outputs/timelines/.gitkeep
