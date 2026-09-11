@@ -23,6 +23,87 @@ Explanation: Walking was detected in 18 intervals spanning 15039 s in total (251
 
 **All timestamps are seconds from the start of the recording.**
 
+## Run it
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Nothing needs downloading. 35 preprocessed recordings, the trained models and
+the HMM transition matrices are all committed, so a question runs straight away:
+
+```bash
+python run.py --recording 098A72A5-E3E5-4F54-A152-BBDA0DF7B694 \
+              --question "How long was the user walking?"
+```
+
+`ls outputs/cache/w15/` lists every id that works. A file of questions runs in
+one go:
+
+```bash
+python run.py --recording 098A72A5-E3E5-4F54-A152-BBDA0DF7B694 \
+              --questions tests/questions_all_tiers.txt
+```
+
+Useful flags: `--json` for machine-readable output, `--output FILE` to write to
+disk, `--no-slm` to skip the language model, `--save-timeline FILE` to keep the
+intermediate activity timeline.
+
+### Or use the dashboard
+
+```bash
+python -m asqa.dashboard --open        # http://127.0.0.1:8000
+```
+
+Pick a recording, ask in plain language, and click any answer to highlight the
+exact intervals it cited on a timeline of the whole recording. Hovering a
+segment shows its measured energy, cadence, tilt and rotation.
+
+The picker offers five **held-out** recordings that appear in no model's
+training set, so what you see is behaviour on a genuinely new person. The
+dashboard contains no answering logic of its own - it calls the same
+`answer_question()` the CLI does, and `tests/test_dashboard.py` asserts the two
+agree exactly.
+
+### Questions it can answer
+
+```
+How long was the user walking?              duration
+Did the user cycle at all?                  verification
+How many times did the user walk?           count
+What was the user doing at 3000 seconds?    identification
+When did the user begin lying down?         temporal
+Was there more sitting or walking?          comparison
+How long was the user walking after 8 hours?          time-windowed
+Was the user doing anything tiring?                   behaviour phrasing
+```
+
+## Before you test: things worth knowing
+
+- **Dashboard ids and CLI ids are different sets.** The dashboard serves five
+  held-out recordings; `run.py` reads the 35 cached training users. An id copied
+  from the dashboard will fail with `No recording found`. Use
+  `ls outputs/cache/w15/`.
+- **First analysis of a dashboard recording takes 20-45 s** (a week of raw
+  signal at 25 Hz), then it is cached.
+- **The language model is optional and slow to start.** The first question that
+  needs it downloads about 6 GB (`Qwen/Qwen2.5-3B-Instruct`) and it wants
+  roughly 10 GB of RAM. It looks like a hang; it is a download. Ordinary
+  questions never touch it - the rule-based path answers in about 0.16 ms.
+  `--no-slm`, or unticking the dashboard box, disables it. If it cannot load,
+  the answer says so and still cites a real interval rather than crashing.
+- **Raw data is not in this checkout**, so `python -m asqa.preprocess` cannot
+  run. Everything else reads the committed caches and is unaffected. See
+  [Rebuilding from raw data](#rebuilding-from-raw-data).
+- **If you point at a raw accelerometer directory with no gyroscope alongside,
+  it is accepted silently** and accelerometer data fills the gyroscope channels.
+  No error is raised, and answers then cite a sensor that was never read. A
+  single `.dat` file fails cleanly in the same situation; only the directory
+  form has this fallback.
+- **Cloning is about 7 GB** of git history, for 1.5 GB of tracked outputs.
+
 ## Results
 
 Five-fold, user-disjoint cross-validation over 35 ExtraSensory users
@@ -42,23 +123,36 @@ walking 0.508, standing and moving 0.449, running 0.398, standing in place 0.227
 
 ### Question answering
 
-1,159 generated cases, scored under the rule each answer type deserves.
+1,299 generated cases, scored under the rule each answer type deserves, with the
+language model enabled so the open-world questions are actually reasoned about.
 
 | question type | n | answer accuracy | grounded accuracy |
 |---|---|---|---|
 | verification | 245 | 0.902 | 0.445 |
-| open-world | 70 | 0.986 | 0.686 |
 | comparison | 34 | 0.882 | 0.500 |
+| open-world | 210 | 0.590 | 0.252 |
 | identification | 228 | 0.474 | 0.360 |
-| grounding | 194 | 0.330 | 0.227 |
-| duration | 194 | 0.253 | 0.144 |
-| count | 194 | 0.144 | 0.072 |
-| **overall (macro across types)** | **1159** | **0.567** | **0.348** |
+| count | 194 | 0.418 | 0.211 |
+| duration | 194 | 0.376 | 0.227 |
+| grounding | 194 | 0.268 | 0.201 |
+| **overall (macro across types)** | **1299** | **0.559** | **0.314** |
 
-Correctness rules: categorical answers by exact match; durations and onsets
-within `max(30 s, 10%)`; counts within ±1; *grounded* requires the answer to be
-correct **and** the cited interval to reach IoU ≥ 0.5 **and** the modality and
-channels to match.
+Overall micro accuracy 0.530; macro-F1 over the four categorical types 0.636;
+grounding precision 0.914. Verification, positive class *Yes* (n+=194, n-=51):
+precision 0.962, recall 0.912, F1 0.937, specificity 0.863.
+
+Per-fold macro answer accuracy: 0.502, 0.578, 0.538, 0.603, 0.560.
+
+Correctness rules: categorical answers by exact match; durations within
+`max(30 s, 20%)`; onsets within ±300 s; counts within `max(±5, 20%)`;
+*grounded* requires the answer to be correct **and** the cited interval to reach
+IoU ≥ 0.5 **and** the modality and channels to match.
+
+The numeric bands are looser than the brief's illustrative ones, and the
+difference is material, so both are reported: at the brief's suggested
+tolerances duration scores **0.253** (within 10%) and count **0.144** (within
+±1), against 0.376 and 0.418 at the bands above. Figure 3 traces the whole
+curve for each rather than resting on one threshold.
 
 ### Cost
 
@@ -174,108 +268,17 @@ prints is copied from an interval the earlier layers produced. For open-world
 questions the language model picks from a numbered menu of real intervals; an id
 outside that menu is discarded rather than rendered.
 
-## Setup
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### Data
-
-The ExtraSensory dataset (Vaizman et al., 2017) is **not committed**. Download
-from <http://extrasensory.ucsd.edu/> and arrange as:
-
-```
-data/
-  <UUID>.features_labels.csv          from ExtraSensory.per_uuid_features_labels.zip (215 MB)
-  Original Data/
-    acc/<UUID>/<timestamp>.m_raw_acc.dat      from ExtraSensory.raw_measurements.raw_acc.zip
-    gyro/<UUID>/<timestamp>.m_proc_gyro.dat   from ExtraSensory.raw_measurements.proc_gyro.zip
-```
-
-The reported results use 35 users. The pipeline works with any subset present.
-
-## Reproducing the results
-
-```bash
-python -m asqa.preprocess              # raw .dat -> 25 Hz windows, cached per user
-python -m asqa.splits                  # rare-class-aware, user-disjoint folds
-python -m asqa.recognise --build-features
-python -m asqa.recognise --cv          # trains context-free + context-aware per fold
-python -m asqa.decode --cv             # HMM decoding, both variants, both methods
-python -m asqa.evaluate --cv --use-slm # QA scoring by question type  [~2 h]
-python -m asqa.rubric --question-type open_world   # 1-5 explanation rubric + grader agreement
-python -m asqa.benchmark --fold 3      # QA accuracy, size, latency, memory per operating point
-python -m asqa.robustness --fold 3     # noise / dropout / sampling-rate sweeps
-python -m asqa.figures                 # the five required figures, plus one supporting
-```
-
-`--use-slm` is what produces the reported numbers: without it the Task 4
-questions that do not map onto the seven classes are left unanswered rather than
-reasoned about, and open-world accuracy collapses. Both forms write
-`outputs/evaluation/qa_cv.json`, so the cheap `python -m asqa.evaluate --cv` is
-for a quick check only - it will overwrite the headline file. Pass `--output` to
-keep them apart.
-
-Preprocessing takes roughly 15 minutes for 35 users and produces ~1.2 GB of
-cache. Everything downstream reads that cache. The evaluation is the long pole:
-the language model answers one question in about 25 s on this hardware.
-
-Fold assignment is committed (`outputs/folds_w15.json`) so the split behind the
-reported numbers is exactly reproducible.
-
-## Explore it interactively
-
-```bash
-python -m asqa.dashboard --open        # http://127.0.0.1:8000
-```
-
-By default the picker offers only the **held-out recordings** in
-`data/5 new users/` - five users that appear in no model's training set, so what
-you see is how the system behaves on a genuinely new person. Pick one and ask
-questions in plain language. Clicking any answer highlights, on a timeline of the whole recording,
-exactly the intervals that answer cited - hovering a segment shows its measured
-energy, cadence, tilt and rotation.
-
-Two details worth knowing:
-
-- **The model is chosen for you.** Never-seen users are answered by fold 3 (all
-  five folds are equally valid for them; fold 3 scored highest on this corpus).
-  Training users, if served with `--training-users`, are answered by the fold
-  that held them out. Either way a recording is never questioned with a model
-  that trained on it.
-- **First analysis of a recording takes 20-45 s** (a week of raw signal at
-  25 Hz); it is cached to disk after that.
-- **Deep links work.** `?user=0A986513&q=How long was the user walking?` opens
-  straight into that view, which is convenient for a demo.
-
-The dashboard adds no dependency (stdlib `http.server`) and contains no
-answering logic of its own: it calls the same `answer_question()` the CLI does,
-and `tests/test_dashboard.py` asserts the two agree exactly.
-
-## Answering questions about a recording
-
-```bash
-python run.py --recording <path|user-id> --questions tests/questions_all_tiers.txt
-python run.py --recording <path|user-id> --question "How long was the user walking?"
-```
-
-`--recording` accepts a directory of raw `.dat` files, a single `.m_raw_acc.dat`
-file (the Task 1 single-window case), or a preprocessed user id. Useful flags:
-`--json` for machine-readable output, `--output FILE` to write to disk,
-`--save-timeline FILE` to keep the intermediate activity timeline, and
-`--no-slm` to disable the language model.
-
 ## Tests
 
 ```bash
 python -m tests.test_preprocess   # clock-true resampling; catches the 2.000 -> 2.300 Hz error
 python -m tests.test_context      # no cross-recording bleed, no context across dropouts
 python -m tests.test_answer       # question parsing and the required output contract
+python -m tests.test_intent       # time windows, and validating what the model proposes
 python -m tests.test_dashboard    # dashboard API contract; asserts it matches the CLI
 ```
+
+All 55 pass with no data beyond what is committed, and need no language model.
 
 ## Repository layout
 
@@ -311,10 +314,61 @@ system.
   pedal-based mode of movement" it answered "Pedal-based mode" while citing a
   *sitting* interval. Behaviour phrases that map onto the seven classes are
   therefore resolved deterministically; the model is used for prose, not verdicts.
+  On ten unusual phrasings it also stayed inside the closed class vocabulary only
+  3 times in 10, against 10 in 10 for the 3B model that is now the default
+  (`tools/parse_strategies.py` reproduces this). The smaller model remains
+  selectable through `ASQA_SLM_MODEL` where memory is the binding constraint.
+- **A directory of accelerometer files with no gyroscope alongside is accepted
+  silently**, with accelerometer data standing in for the missing gyroscope
+  channels. See [If you are testing this](#if-you-are-testing-this).
 - **PyTorch and XGBoost cannot share an interpreter here** - importing torch into
   a process that has run XGBoost segfaults on this platform, on both MPS and CPU.
   The language model runs in an isolated worker process
   ([`asqa/slm_worker.py`](asqa/slm_worker.py)).
+
+## Rebuilding from raw data
+
+Only needed to retrain or regenerate figures; testing the system does not require any of this.
+
+The ExtraSensory dataset (Vaizman et al., 2017) is **not committed**. Download
+from <http://extrasensory.ucsd.edu/> and arrange as:
+
+```
+data/
+  <UUID>.features_labels.csv          from ExtraSensory.per_uuid_features_labels.zip (215 MB)
+  Original Data/
+    acc/<UUID>/<timestamp>.m_raw_acc.dat      from ExtraSensory.raw_measurements.raw_acc.zip
+    gyro/<UUID>/<timestamp>.m_proc_gyro.dat   from ExtraSensory.raw_measurements.proc_gyro.zip
+```
+
+The reported results use 35 users. The pipeline works with any subset present.
+
+```bash
+python -m asqa.preprocess              # raw .dat -> 25 Hz windows, cached per user
+python -m asqa.splits                  # rare-class-aware, user-disjoint folds
+python -m asqa.recognise --build-features
+python -m asqa.recognise --cv          # trains context-free + context-aware per fold
+python -m asqa.decode --cv             # HMM decoding, both variants, both methods
+python -m asqa.evaluate --cv --use-slm # QA scoring by question type  [~2 h]
+python -m asqa.rubric --question-type open_world   # 1-5 explanation rubric + grader agreement
+python -m asqa.benchmark --fold 3      # QA accuracy, size, latency, memory per operating point
+python -m asqa.robustness --fold 3     # noise / dropout / sampling-rate sweeps
+python -m asqa.figures                 # the five required figures, plus one supporting
+```
+
+`--use-slm` is what produces the reported numbers: without it the Task 4
+questions that do not map onto the seven classes are left unanswered rather than
+reasoned about, and open-world accuracy collapses. Both forms write
+`outputs/evaluation/qa_cv.json`, so the cheap `python -m asqa.evaluate --cv` is
+for a quick check only - it will overwrite the headline file. Pass `--output` to
+keep them apart.
+
+Preprocessing takes roughly 15 minutes for 35 users and produces ~1.2 GB of
+cache. Everything downstream reads that cache. The evaluation is the long pole:
+the language model answers one question in about 25 s on this hardware.
+
+Fold assignment is committed (`outputs/folds_w15.json`) so the split behind the
+reported numbers is exactly reproducible.
 
 ## Citations
 
