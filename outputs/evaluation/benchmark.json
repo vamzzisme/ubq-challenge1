@@ -75,5 +75,14 @@
       "qa_grounded_accuracy_macro": 0.3597,
       "qa_cases": 312
     }
-  ]
+  ],
+  "language_model": {
+    "model": "Qwen/Qwen2.5-3B-Instruct",
+    "parameters": 3085938688,
+    "dtype": "torch.float16",
+    "device": "mps:0",
+    "latency_s_including_cold_start": 28.08,
+    "peak_rss_mb": 10002.4,
+    "note": "Runs in an isolated process (PyTorch and XGBoost cannot share one interpreter here). Latency includes loading the weights, which dominates a single query; a served deployment would amortise it. Set ASQA_SLM_MODEL to measure a different operating point."
+  }
 }

@@ -1,0 +1,4030 @@
+{
+  "n_explanations": 210,
+  "scale": "1-5",
+  "criteria": {
+    "cites_features": "Does the explanation cite real measured signal features from the evidence (energy, cadence, tilt, rotation, times) rather than vague or invented claims?",
+    "features_support": "Do the features it cites actually support the conclusion it draws?",
+    "plausible": "Is the conclusion plausible for a wearable accelerometer and gyroscope recording?"
+  },
+  "mean_rubric_score": 3.931746031746032,
+  "mean_by_criterion": {
+    "cites_features": 4.247619047619048,
+    "features_support": 3.169047619047619,
+    "plausible": 4.378571428571429
+  },
+  "mean_by_question_type": {
+    "open_world": 3.931746031746032
+  },
+  "agreement": {
+    "n_graders": 2,
+    "cites_features": {
+      "krippendorff_alpha": 0.9826547720075341,
+      "quadratic_weighted_kappa": 0.9826140950015523
+    },
+    "features_support": {
+      "krippendorff_alpha": 0.8729681985940602,
+      "quadratic_weighted_kappa": 0.872690237159901
+    },
+    "plausible": {
+      "krippendorff_alpha": 0.9455632064440691,
+      "quadratic_weighted_kappa": 0.9454356487095098
+    }
+  },
+  "embedding_similarity_proxy": {
+    "mean": 0.9566506320521945,
+    "median": 0.9582921862602234,
+    "note": "secondary to the rubric; rewards surface overlap with the reference"
+  },
+  "graded": [
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 25 intervals totalling 114865 s, identified from body-acceleration energy 0.002 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.004 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          2,
+          3
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 14 intervals totalling 8531 s, identified from body-acceleration energy 0.251 g, a 2.3 Hz cadence, a gravity vector 27 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "No window was classified as standing and moving or running or bicycling. The activities detected in the recording were: lying down, sitting, standing in place, walking. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 1695 s and sitting totals 49291 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 20 intervals totalling 49291 s, identified from body-acceleration energy 0.002 g, a gravity vector 61 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 21 intervals totalling 50986 s, identified from body-acceleration energy 0.002 g, a gravity vector 61 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 85 intervals totalling 220896 s, identified from body-acceleration energy 0.001 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.051 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 40 intervals totalling 49117 s, identified from body-acceleration energy 0.452 g, a 0.9 Hz cadence, a gravity vector 76 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 45 intervals totalling 39773 s, identified from body-acceleration energy 0.221 g, a 3.1 Hz cadence, a gravity vector 56 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 3308 s and sitting totals 122910 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          2
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 97 intervals totalling 153821 s, identified from body-acceleration energy 0.013 g, a gravity vector 31 deg from the device axis, gyroscope energy 0.080 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 72 intervals totalling 126218 s, identified from body-acceleration energy 0.013 g, a gravity vector 31 deg from the device axis, gyroscope energy 0.080 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 35 intervals totalling 124103 s, identified from body-acceleration energy 0.007 g, a gravity vector 7 deg from the device axis, gyroscope energy 0.009 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 18 intervals totalling 34391 s, identified from body-acceleration energy 0.343 g, a 1.9 Hz cadence, a gravity vector 84 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 10 intervals totalling 12728 s, identified from body-acceleration energy 0.136 g, a 4.2 Hz cadence, a gravity vector 82 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 70 s and sitting totals 112150 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 41 intervals totalling 124878 s, identified from body-acceleration energy 0.007 g, a gravity vector 7 deg from the device axis, gyroscope energy 0.009 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 32 intervals totalling 112220 s, identified from body-acceleration energy 0.007 g, a gravity vector 7 deg from the device axis, gyroscope energy 0.009 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 85 intervals totalling 365251 s, identified from body-acceleration energy 0.003 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.008 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 33 intervals totalling 43425 s, identified from body-acceleration energy 0.221 g, a 2.6 Hz cadence, a gravity vector 61 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 53 intervals totalling 44487 s, identified from body-acceleration energy 0.049 g, a gravity vector 84 deg from the device axis, gyroscope energy 0.325 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 25639 s and sitting totals 187982 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          2
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 107 intervals totalling 214154 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.009 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 107 intervals totalling 213621 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.009 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 70 intervals totalling 496623 s, identified from body-acceleration energy 0.002 g, a gravity vector 9 deg from the device axis, gyroscope energy 0.002 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 15 intervals totalling 15379 s, identified from body-acceleration energy 0.191 g, a 1.9 Hz cadence, a gravity vector 75 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 12 intervals totalling 15236 s, identified from body-acceleration energy 0.115 g, a 4.2 Hz cadence, a gravity vector 46 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 1695 s and sitting totals 282067 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          2
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 58 intervals totalling 297303 s, identified from body-acceleration energy 0.003 g, a gravity vector 38 deg from the device axis, gyroscope energy 0.003 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 47 intervals totalling 283762 s, identified from body-acceleration energy 0.003 g, a gravity vector 38 deg from the device axis, gyroscope energy 0.003 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 117 intervals totalling 267942 s, identified from body-acceleration energy 0.003 g, a gravity vector 8 deg from the device axis, gyroscope energy 0.001 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 50 intervals totalling 43304 s, identified from body-acceleration energy 0.177 g, a 3.6 Hz cadence, a gravity vector 77 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 39 intervals totalling 25097 s, identified from body-acceleration energy 0.058 g, a 3.6 Hz cadence, a gravity vector 55 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 11666 s and sitting totals 168116 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          2
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 108 intervals totalling 191664 s, identified from body-acceleration energy 0.003 g, a gravity vector 3 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 95 intervals totalling 179782 s, identified from body-acceleration energy 0.003 g, a gravity vector 3 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 130 intervals totalling 343251 s, identified from body-acceleration energy 0.002 g, a gravity vector 3 deg from the device axis, gyroscope energy 0.024 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          4
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 76 intervals totalling 96696 s, identified from body-acceleration energy 0.189 g, a 2.5 Hz cadence, a gravity vector 81 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 26 intervals totalling 20393 s, identified from body-acceleration energy 0.293 g, a 3.1 Hz cadence, a gravity vector 87 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 17892 s and sitting totals 217802 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          2
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 106 intervals totalling 235218 s, identified from body-acceleration energy 0.005 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.018 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 110 intervals totalling 235694 s, identified from body-acceleration energy 0.005 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.018 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 61 intervals totalling 339210 s, identified from body-acceleration energy 0.002 g, a gravity vector 7 deg from the device axis, gyroscope energy 0.002 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 23 intervals totalling 28945 s, identified from body-acceleration energy 0.217 g, a 4.2 Hz cadence, a gravity vector 55 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 15 intervals totalling 8515 s, identified from body-acceleration energy 0.136 g, a 3.6 Hz cadence, a gravity vector 82 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 3900 s and sitting totals 190585 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          2
+        ],
+        "features_support": [
+          1,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 62 intervals totalling 199100 s, identified from body-acceleration energy 0.013 g, a gravity vector 14 deg from the device axis, gyroscope energy 0.059 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 59 intervals totalling 194485 s, identified from body-acceleration energy 0.013 g, a gravity vector 14 deg from the device axis, gyroscope energy 0.059 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 52 intervals totalling 84701 s, identified from body-acceleration energy 0.006 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.004 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "No window was classified as walking or running or bicycling. The activities detected in the recording were: lying down, sitting, standing and moving.",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 1 interval totalling 1147 s, identified from body-acceleration energy 0.047 g, a gravity vector 12 deg from the device axis, gyroscope energy 0.212 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 0 s and sitting totals 43604 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 33 intervals totalling 44751 s, identified from body-acceleration energy 0.006 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.005 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 32 intervals totalling 43604 s, identified from body-acceleration energy 0.006 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.005 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 34 intervals totalling 187351 s, identified from body-acceleration energy 0.002 g, a gravity vector 6 deg from the device axis, gyroscope energy 0.003 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 10 intervals totalling 14910 s, identified from body-acceleration energy 0.271 g, a 2.8 Hz cadence, a gravity vector 84 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 17 intervals totalling 20046 s, identified from body-acceleration energy 0.150 g, a 4.2 Hz cadence, a gravity vector 64 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 705 s and sitting totals 147887 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          2
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 48 intervals totalling 167933 s, identified from body-acceleration energy 0.002 g, a gravity vector 6 deg from the device axis, gyroscope energy 0.003 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 38 intervals totalling 148592 s, identified from body-acceleration energy 0.002 g, a gravity vector 6 deg from the device axis, gyroscope energy 0.003 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 1 interval totalling 15 s, identified from body-acceleration energy 0.003 g, a gravity vector 3 deg from the device axis, gyroscope energy 0.092 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "No window was classified as walking or running or bicycling. The activities detected in the recording were: lying down.",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "No window was classified as standing and moving or running or bicycling. The activities detected in the recording were: lying down. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 0 s and sitting totals 0 s, so the two are equal. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          4,
+          3
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "No window was classified as standing and moving or sitting. The activities detected in the recording were: lying down. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          4,
+          3
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "No window was classified as standing in place or sitting. The activities detected in the recording were: lying down. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          2
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 54 intervals totalling 329065 s, identified from body-acceleration energy 0.002 g, a gravity vector 4 deg from the device axis, gyroscope energy 0.014 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 45 intervals totalling 90376 s, identified from body-acceleration energy 0.206 g, a 2.5 Hz cadence, a gravity vector 43 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 17 intervals totalling 50321 s, identified from body-acceleration energy 0.206 g, a 2.5 Hz cadence, a gravity vector 43 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 4979 s and sitting totals 182605 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 57 intervals totalling 198910 s, identified from body-acceleration energy 0.003 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.014 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 54 intervals totalling 187584 s, identified from body-acceleration energy 0.003 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.014 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 28 intervals totalling 36326 s, identified from body-acceleration energy 0.002 g, a gravity vector 8 deg from the device axis, gyroscope energy 0.003 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 11 intervals totalling 2808 s, identified from body-acceleration energy 0.464 g, a 1.0 Hz cadence, a gravity vector 84 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "No window was classified as standing and moving or running or bicycling. The activities detected in the recording were: lying down, sitting, standing in place, walking. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 195 s and sitting totals 34720 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          3
+        ],
+        "features_support": [
+          2,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 25 intervals totalling 34720 s, identified from body-acceleration energy 0.002 g, a gravity vector 8 deg from the device axis, gyroscope energy 0.003 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 26 intervals totalling 34915 s, identified from body-acceleration energy 0.002 g, a gravity vector 8 deg from the device axis, gyroscope energy 0.003 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 92 intervals totalling 314508 s, identified from body-acceleration energy 0.003 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.003 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 14 intervals totalling 9715 s, identified from body-acceleration energy 0.538 g, a 1.1 Hz cadence, a gravity vector 56 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 7 intervals totalling 2927 s, identified from body-acceleration energy 0.253 g, a 4.2 Hz cadence, a gravity vector 53 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 15 s and sitting totals 146386 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 81 intervals totalling 147467 s, identified from body-acceleration energy 0.004 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.004 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 78 intervals totalling 146401 s, identified from body-acceleration energy 0.004 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.004 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 66 intervals totalling 355336 s, identified from body-acceleration energy 0.028 g, a gravity vector 6 deg from the device axis, gyroscope energy 0.023 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 18 intervals totalling 11596 s, identified from body-acceleration energy 0.317 g, a 1.6 Hz cadence, a gravity vector 42 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 27 intervals totalling 18460 s, identified from body-acceleration energy 0.132 g, a 4.2 Hz cadence, a gravity vector 65 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 5565 s and sitting totals 274143 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 83 intervals totalling 292603 s, identified from body-acceleration energy 0.028 g, a gravity vector 6 deg from the device axis, gyroscope energy 0.023 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 75 intervals totalling 279708 s, identified from body-acceleration energy 0.028 g, a gravity vector 6 deg from the device axis, gyroscope energy 0.023 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          4
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 93 intervals totalling 320397 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.003 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 39 intervals totalling 43660 s, identified from body-acceleration energy 0.437 g, a 1.0 Hz cadence, a gravity vector 74 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 27 intervals totalling 12521 s, identified from body-acceleration energy 0.035 g, a gravity vector 84 deg from the device axis, gyroscope energy 0.170 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 4428 s and sitting totals 300564 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          1
+        ],
+        "features_support": [
+          1,
+          2
+        ],
+        "plausible": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 107 intervals totalling 313085 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.003 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 99 intervals totalling 304992 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.003 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 76 intervals totalling 117775 s, identified from body-acceleration energy 0.002 g, a gravity vector 84 deg from the device axis, gyroscope energy 0.202 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 26 intervals totalling 8505 s, identified from body-acceleration energy 0.315 g, a 3.6 Hz cadence, a gravity vector 47 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 42 intervals totalling 31107 s, identified from body-acceleration energy 0.133 g, a 4.2 Hz cadence, a gravity vector 86 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 633 s and sitting totals 78907 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          1
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 115 intervals totalling 110014 s, identified from body-acceleration energy 0.010 g, a gravity vector 17 deg from the device axis, gyroscope energy 0.222 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 88 intervals totalling 79540 s, identified from body-acceleration energy 0.010 g, a gravity vector 17 deg from the device axis, gyroscope energy 0.222 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 26 intervals totalling 78347 s, identified from body-acceleration energy 0.006 g, a gravity vector 0 deg from the device axis, gyroscope energy 0.006 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "No window was classified as walking or running or bicycling. The activities detected in the recording were: lying down, sitting, standing in place, standing and moving.",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          2,
+          3
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 3 intervals totalling 465 s, identified from body-acceleration energy 0.047 g, a gravity vector 11 deg from the device axis, gyroscope energy 0.254 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 2849 s and sitting totals 19046 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 22 intervals totalling 19511 s, identified from body-acceleration energy 0.007 g, a gravity vector 0 deg from the device axis, gyroscope energy 0.006 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 24 intervals totalling 21895 s, identified from body-acceleration energy 0.007 g, a gravity vector 0 deg from the device axis, gyroscope energy 0.006 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 107 intervals totalling 416175 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.003 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 44 intervals totalling 63084 s, identified from body-acceleration energy 0.178 g, a 3.1 Hz cadence, a gravity vector 60 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 97 intervals totalling 89236 s, identified from body-acceleration energy 0.105 g, a 4.2 Hz cadence, a gravity vector 86 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 2023 s and sitting totals 258015 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 182 intervals totalling 328000 s, identified from body-acceleration energy 0.105 g, a 4.2 Hz cadence, a gravity vector 86 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 135 intervals totalling 260038 s, identified from body-acceleration energy 0.005 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.003 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 29 intervals totalling 205107 s, identified from body-acceleration energy 0.003 g, a gravity vector 31 deg from the device axis, gyroscope energy 0.002 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 17 intervals totalling 11559 s, identified from body-acceleration energy 0.355 g, a 1.7 Hz cadence, a gravity vector 75 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 10 intervals totalling 7650 s, identified from body-acceleration energy 0.093 g, a 4.2 Hz cadence, a gravity vector 45 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 5760 s and sitting totals 146127 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 35 intervals totalling 153777 s, identified from body-acceleration energy 0.003 g, a gravity vector 31 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 29 intervals totalling 151887 s, identified from body-acceleration energy 0.003 g, a gravity vector 31 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 70 intervals totalling 80629 s, identified from body-acceleration energy 0.021 g, a gravity vector 42 deg from the device axis, gyroscope energy 0.051 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          4
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 42 intervals totalling 36867 s, identified from body-acceleration energy 0.255 g, a 3.0 Hz cadence, a gravity vector 82 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 18 intervals totalling 11346 s, identified from body-acceleration energy 0.097 g, a 4.2 Hz cadence, a gravity vector 84 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 1103 s and sitting totals 80629 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          2,
+          1
+        ],
+        "plausible": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 84 intervals totalling 88653 s, identified from body-acceleration energy 0.021 g, a gravity vector 42 deg from the device axis, gyroscope energy 0.051 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 75 intervals totalling 81732 s, identified from body-acceleration energy 0.021 g, a gravity vector 42 deg from the device axis, gyroscope energy 0.051 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 37 intervals totalling 202429 s, identified from body-acceleration energy 0.003 g, a gravity vector 14 deg from the device axis, gyroscope energy 0.004 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 20 intervals totalling 42883 s, identified from body-acceleration energy 0.291 g, a 2.8 Hz cadence, a gravity vector 46 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 27 intervals totalling 48769 s, identified from body-acceleration energy 0.291 g, a 2.8 Hz cadence, a gravity vector 46 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 1050 s and sitting totals 85028 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          2
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 54 intervals totalling 110097 s, identified from body-acceleration energy 0.002 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.004 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 45 intervals totalling 86078 s, identified from body-acceleration energy 0.002 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.004 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 66 intervals totalling 109788 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.002 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          3
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 44 intervals totalling 50307 s, identified from body-acceleration energy 0.205 g, a 2.8 Hz cadence, a gravity vector 72 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 31 intervals totalling 27446 s, identified from body-acceleration energy 0.294 g, a 1.6 Hz cadence, a gravity vector 63 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 2996 s and sitting totals 105279 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          2,
+          3
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 75 intervals totalling 110895 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 66 intervals totalling 108275 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 34 intervals totalling 182340 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.007 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 10 intervals totalling 6905 s, identified from body-acceleration energy 0.436 g, a 1.0 Hz cadence, a gravity vector 86 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 8 intervals totalling 720 s, identified from body-acceleration energy 0.098 g, a 4.2 Hz cadence, a gravity vector 66 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 8370 s and sitting totals 91260 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          2
+        ],
+        "features_support": [
+          1,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 34 intervals totalling 91980 s, identified from body-acceleration energy 0.016 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.008 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 36 intervals totalling 99630 s, identified from body-acceleration energy 0.016 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.008 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 68 intervals totalling 285815 s, identified from body-acceleration energy 0.003 g, a gravity vector 0 deg from the device axis, gyroscope energy 0.008 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 25 intervals totalling 22903 s, identified from body-acceleration energy 0.111 g, a 3.3 Hz cadence, a gravity vector 67 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 27 intervals totalling 8490 s, identified from body-acceleration energy 0.084 g, a 3.6 Hz cadence, a gravity vector 65 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 23886 s and sitting totals 166244 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 77 intervals totalling 174622 s, identified from body-acceleration energy 0.003 g, a gravity vector 10 deg from the device axis, gyroscope energy 0.008 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 81 intervals totalling 190130 s, identified from body-acceleration energy 0.003 g, a gravity vector 10 deg from the device axis, gyroscope energy 0.008 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 70 intervals totalling 487995 s, identified from body-acceleration energy 0.002 g, a gravity vector 10 deg from the device axis, gyroscope energy 0.002 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 44 intervals totalling 43753 s, identified from body-acceleration energy 0.362 g, a 0.9 Hz cadence, a gravity vector 76 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 18 intervals totalling 22798 s, identified from body-acceleration energy 0.073 g, a 4.2 Hz cadence, a gravity vector 29 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 2925 s and sitting totals 276938 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 79 intervals totalling 299736 s, identified from body-acceleration energy 0.002 g, a gravity vector 3 deg from the device axis, gyroscope energy 0.001 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 72 intervals totalling 279863 s, identified from body-acceleration energy 0.002 g, a gravity vector 3 deg from the device axis, gyroscope energy 0.001 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 132 intervals totalling 261679 s, identified from body-acceleration energy 0.002 g, a gravity vector 0 deg from the device axis, gyroscope energy 0.028 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 10 intervals totalling 6273 s, identified from body-acceleration energy 0.075 g, a 4.2 Hz cadence, a gravity vector 82 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 27 intervals totalling 13139 s, identified from body-acceleration energy 0.053 g, a 4.2 Hz cadence, a gravity vector 84 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 11063 s and sitting totals 120000 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          2
+        ],
+        "features_support": [
+          2,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 101 intervals totalling 133139 s, identified from body-acceleration energy 0.002 g, a gravity vector 3 deg from the device axis, gyroscope energy 0.022 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 102 intervals totalling 131063 s, identified from body-acceleration energy 0.002 g, a gravity vector 3 deg from the device axis, gyroscope energy 0.022 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 43 intervals totalling 292911 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.002 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          4
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 18 intervals totalling 23070 s, identified from body-acceleration energy 0.214 g, a 2.5 Hz cadence, a gravity vector 58 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 10 intervals totalling 10284 s, identified from body-acceleration energy 0.214 g, a 2.5 Hz cadence, a gravity vector 58 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 6869 s and sitting totals 141587 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          2
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 37 intervals totalling 143716 s, identified from body-acceleration energy 0.004 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 41 intervals totalling 148456 s, identified from body-acceleration energy 0.004 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 1373 intervals totalling 80091 s, identified from body-acceleration energy 0.002 g, a gravity vector 13 deg from the device axis, gyroscope energy 0.011 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 253 intervals totalling 4758 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.013 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 30 intervals totalling 568 s, identified from body-acceleration energy 0.046 g, a gravity vector 14 deg from the device axis, gyroscope energy 0.261 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 1483 s and sitting totals 56372 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          2
+        ],
+        "features_support": [
+          2,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 1257 intervals totalling 56790 s, identified from body-acceleration energy 0.002 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.012 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 1331 intervals totalling 57855 s, identified from body-acceleration energy 0.002 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.012 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 264 intervals totalling 81492 s, identified from body-acceleration energy 0.001 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.476 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 15 intervals totalling 3014 s, identified from body-acceleration energy 0.302 g, a 2.5 Hz cadence, a gravity vector 10 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 1 interval totalling 15 s, identified from body-acceleration energy 0.403 g, a 4.2 Hz cadence, a gravity vector 80 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 0 s and sitting totals 54204 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          2,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 193 intervals totalling 54219 s, identified from body-acceleration energy 0.001 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.476 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 192 intervals totalling 54204 s, identified from body-acceleration energy 0.001 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.476 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 53 intervals totalling 131746 s, identified from body-acceleration energy 0.082 g, a 2.3 Hz cadence, a gravity vector 57 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 23 intervals totalling 27834 s, identified from body-acceleration energy 0.436 g, a 2.3 Hz cadence, a gravity vector 82 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 22 intervals totalling 28297 s, identified from body-acceleration energy 0.088 g, a 4.2 Hz cadence, a gravity vector 88 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 2024 s and sitting totals 129259 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          2
+        ],
+        "features_support": [
+          1,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 74 intervals totalling 157556 s, identified from body-acceleration energy 0.082 g, a 2.3 Hz cadence, a gravity vector 57 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 59 intervals totalling 131283 s, identified from body-acceleration energy 0.082 g, a 2.3 Hz cadence, a gravity vector 57 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 56 intervals totalling 307957 s, identified from body-acceleration energy 0.003 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.007 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 29 intervals totalling 45387 s, identified from body-acceleration energy 0.517 g, a 1.1 Hz cadence, a gravity vector 77 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 6 intervals totalling 8312 s, identified from body-acceleration energy 0.139 g, a 2.2 Hz cadence, a gravity vector 41 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 1545 s and sitting totals 226237 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 51 intervals totalling 227422 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.008 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 51 intervals totalling 227782 s, identified from body-acceleration energy 0.003 g, a gravity vector 1 deg from the device axis, gyroscope energy 0.008 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 63 intervals totalling 283608 s, identified from body-acceleration energy 0.003 g, a gravity vector 14 deg from the device axis, gyroscope energy 0.004 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 45 intervals totalling 68457 s, identified from body-acceleration energy 0.292 g, a 1.9 Hz cadence, a gravity vector 70 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 18 intervals totalling 28329 s, identified from body-acceleration energy 0.132 g, a 4.2 Hz cadence, a gravity vector 71 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 420 s and sitting totals 191791 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          1
+        ],
+        "features_support": [
+          1,
+          2
+        ],
+        "plausible": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 72 intervals totalling 217015 s, identified from body-acceleration energy 0.006 g, a gravity vector 11 deg from the device axis, gyroscope energy 0.008 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 61 intervals totalling 192211 s, identified from body-acceleration energy 0.006 g, a gravity vector 11 deg from the device axis, gyroscope energy 0.008 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 214 intervals totalling 409690 s, identified from body-acceleration energy 0.004 g, a gravity vector 14 deg from the device axis, gyroscope energy 0.001 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 32 intervals totalling 49281 s, identified from body-acceleration energy 0.430 g, a 1.0 Hz cadence, a gravity vector 42 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          4,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 5 intervals totalling 12965 s, identified from body-acceleration energy 0.055 g, a 4.2 Hz cadence, a gravity vector 77 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 1611 s and sitting totals 301876 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          2,
+          1
+        ],
+        "features_support": [
+          1,
+          2
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 148 intervals totalling 314841 s, identified from body-acceleration energy 0.004 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.001 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 154 intervals totalling 303487 s, identified from body-acceleration energy 0.004 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.001 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user resting for a prolonged period?",
+      "question_type": "open_world",
+      "explanation": "Lying down or sitting was detected across 65 intervals totalling 465433 s, identified from body-acceleration energy 0.002 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.002 rad/s.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          2
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Was the user doing anything strenuous?",
+      "question_type": "open_world",
+      "explanation": "Walking or running or bicycling was detected across 17 intervals totalling 19790 s, identified from body-acceleration energy 0.312 g, a 3.1 Hz cadence, a gravity vector 74 deg from the device axis.",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user get their heart rate up at any stage?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or running or bicycling was detected across 11 intervals totalling 13727 s, identified from body-acceleration energy 0.182 g, a 3.1 Hz cadence, a gravity vector 47 deg from the device axis. (The wording was unfamiliar, so a language model mapped it to standing and moving, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          5,
+          5
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Would you call this a physically demanding day for the user?",
+      "question_type": "open_world",
+      "explanation": "Standing in place totals 1425 s and sitting totals 296898 s, so sitting occupies more of the recording. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting, walking, running, bicycling; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          1,
+          2
+        ],
+        "features_support": [
+          1,
+          1
+        ],
+        "plausible": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "question": "Was the user busier earlier in the recording than later on?",
+      "question_type": "open_world",
+      "explanation": "Standing and moving or sitting was detected across 61 intervals totalling 305900 s, identified from body-acceleration energy 0.003 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing and moving, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          4
+        ],
+        "plausible": [
+          5,
+          5
+        ]
+      }
+    },
+    {
+      "question": "Did the user spend the bigger share of the recording flat out rather than upright in a seat?",
+      "question_type": "open_world",
+      "explanation": "Standing in place or sitting was detected across 56 intervals totalling 298323 s, identified from body-acceleration energy 0.003 g, a gravity vector 2 deg from the device axis, gyroscope energy 0.002 rad/s. (The wording was unfamiliar, so a language model mapped it to standing in place, sitting; the answer itself is computed from the sensor timeline as usual.)",
+      "scores": {
+        "cites_features": [
+          5,
+          5
+        ],
+        "features_support": [
+          3,
+          3
+        ],
+        "plausible": [
+          4,
+          4
+        ]
+      }
+    }
+  ]
+}

@@ -179,9 +179,32 @@ for the question-answering one. `shallow` reads individual windows better than
 while the context-free model scatters its errors inside bouts that survive
 merging.
 
-The open-world language model is reported separately because it dominates.
+The open-world language model is reported separately because it dominates:
+**Qwen2.5-3B-Instruct, 3.086B parameters, 10,002 MB peak RSS, 28.1 s per query**
+including weight loading - roughly 59,000× the cost of classifying a window.
+Only Task 4 questions that do not map onto the seven classes invoke it.
 `asqa.benchmark` asks the worker which model it loaded rather than naming one,
-so the figure always describes the model that actually ran.
+so this figure always describes the model that actually ran.
+
+### Explanation quality
+
+The brief asks for the open-world explanations to be judged on a fixed 1-5
+rubric rather than only for correctness. All 210 open-world explanations were
+graded on three criteria by the same model, twice, at different temperatures.
+
+| criterion | mean (1-5) | Krippendorff α | quadratic-weighted κ |
+|---|---|---|---|
+| cites real signal features | 4.25 | 0.983 | 0.983 |
+| those features support the conclusion | 3.17 | 0.873 | 0.873 |
+| conclusion is plausible | 4.38 | 0.946 | 0.945 |
+| **mean rubric score** | **3.93** | | |
+
+The shape is the useful part: explanations reliably cite real measured features
+(4.25) and reach plausible conclusions (4.38), but the link between the two is
+the weak point (3.17). That is the honest description of a system that grounds
+its prose in real intervals without always reasoning correctly from them.
+Embedding similarity to a reference explanation is 0.957, reported as a
+secondary proxy only - it rewards surface overlap with the template wording.
 
 ### Robustness
 
