@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy import signal as scipy_signal
+from scipy import signal as scipy_signal # for filtering
 
 from asqa import config
 
 
+# gravity is the part of acceleration that barely changes: a 0.3 Hz lowpass
+# separates posture (which way is down) from motion (what the body is doing).
 _GRAVITY_CUTOFF_HZ = 0.3
 _GRAVITY_SOS = scipy_signal.butter(
     4, _GRAVITY_CUTOFF_HZ, btype="lowpass", fs=config.TARGET_RATE_HZ, output="sos"
@@ -16,6 +18,8 @@ _GRAVITY_SOS = scipy_signal.butter(
 
 def separate_gravity(acc: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Split accelerometer samples into (gravity, body) components."""
+    # sosfiltfilt needs more samples than the filter's padding length, so very
+    # short inputs fall back to the mean, which is gravity for a still window.
     if len(acc) <= 12:
         gravity = np.repeat(acc.mean(axis=0, keepdims=True), len(acc), axis=0)
     else:
@@ -25,6 +29,8 @@ def separate_gravity(acc: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def _dominant_frequency(values: np.ndarray, rate_hz: float = config.TARGET_RATE_HZ) -> float:
     """Frequency of the strongest non-DC spectral component."""
+    # Bin 0 is the DC term, already removed by centring; skipping it stops a
+    # constant offset from being reported as the dominant frequency.
     spectrum = np.abs(np.fft.rfft(values - values.mean())) ** 2
     if len(spectrum) <= 1 or spectrum[1:].sum() == 0:
         return 0.0
@@ -55,7 +61,13 @@ def _band_power(values: np.ndarray, low: float, high: float, rate_hz: float = co
 
 
 def cadence_hz(values: np.ndarray, rate_hz: float = config.TARGET_RATE_HZ) -> tuple[float, float]:
-    """Step/pedal rate via autocorrelation, returned as ``(hz, strength)``."""
+    """step rate via autocorrelation, returned as (hz, strength).
+
+    strength is the height of the autocorrelation peak, 0 to 1. It is the
+    more trustworthy than freq: measured medians are 0.13 lying and 0.17
+    sitting against 0.44 walking and 0.53 running, so it reads as "is this
+    rhythmic" even where the frequency itself is unreliable
+    """
     centred = values - values.mean()
     if len(centred) < 4 or np.allclose(centred, 0):
         return 0.0, 0.0
@@ -64,17 +76,26 @@ def cadence_hz(values: np.ndarray, rate_hz: float = config.TARGET_RATE_HZ) -> tu
         return 0.0, 0.0
     correlation = correlation / correlation[0]
 
+    # Lags are whole samples, so only rate_hz/lag is reachable: 4.17, 3.57,
+    # 3.12, 2.78, 2.50 ... The spacing is coarse above ~2.5 Hz, which is exactly
+    # the running range, and there is no interpolation between peaks.
     min_lag = max(1, int(rate_hz / 4.0))
     max_lag = min(len(correlation) - 1, int(rate_hz / 0.5))
     if max_lag <= min_lag:
         return 0.0, 0.0
 
+    # argmax takes the largest peak in range, which may be the stride (one
+    # cycle) rather than the step (two per stride), and on a still window it is
+    # just noise. Always read this alongside the strength it returns.
     window = correlation[min_lag : max_lag + 1]
     peak = int(np.argmax(window))
     lag = min_lag + peak
     return float(rate_hz / lag), float(window[peak])
 
 
+# 40 features in five groups: posture from gravity, intensity from body
+# acceleration, rhythm from the frequency domain, rotation from the gyroscope,
+# and cross-axis correlations. Order shd match the `values` list in extract().
 FEATURE_NAMES: tuple[str, ...] = (
     "gravity_magnitude",
     "acc_unit_scale",
@@ -115,12 +136,16 @@ N_FEATURES = len(FEATURE_NAMES)
 
 def extract(window: np.ndarray, rate_hz: float = config.TARGET_RATE_HZ) -> np.ndarray:
     """Return the feature vector for one (T, 6) acc+gyro window."""
+
     acc = window[:, config.ACC_SLICE].astype(np.float64)
     gyro = window[:, config.GYRO_SLICE].astype(np.float64)
 
     gravity, body = separate_gravity(acc)
     gravity_mean = gravity.mean(axis=0)
     raw_gravity_magnitude = float(np.linalg.norm(gravity_mean))
+
+    # dividing by the measured gravity magnitude puts every recording in g, 
+    # so a threshold learnt on one user transfers to another.
 
     scale = raw_gravity_magnitude if raw_gravity_magnitude > 1e-6 else 1.0
     acc = acc / scale
@@ -129,9 +154,13 @@ def extract(window: np.ndarray, rate_hz: float = config.TARGET_RATE_HZ) -> np.nd
     gravity_mean = gravity_mean / scale
     gravity_magnitude = float(np.linalg.norm(gravity_mean))
 
+    # angle between gravity and the device z axis: near 0 when lying flat,
+    # near 90 when upright. abs() folds face-up and face-down together.
     unit = gravity_mean / (gravity_magnitude + 1e-12)
     tilt_deg = float(np.degrees(np.arccos(np.clip(abs(unit[2]), 0.0, 1.0))))
 
+    # total rotation of the gravity vector across the window: to diiferentiate a
+    # posture that is held from one that is changing.
     gravity_unit = gravity / (np.linalg.norm(gravity, axis=1, keepdims=True) + 1e-12)
     cosines = np.clip(np.sum(gravity_unit[1:] * gravity_unit[:-1], axis=1), -1.0, 1.0)
     orientation_change = float(np.degrees(np.arccos(cosines)).sum())
@@ -139,6 +168,7 @@ def extract(window: np.ndarray, rate_hz: float = config.TARGET_RATE_HZ) -> np.nd
     body_magnitude = np.linalg.norm(body, axis=1)
     body_rms = float(np.sqrt(np.mean(body_magnitude**2)))
 
+    # Jerk is the derivative of acceleration. 
     jerk = np.diff(body, axis=0) * rate_hz
     jerk_magnitude = np.linalg.norm(jerk, axis=1) if len(jerk) else np.zeros(1)
 
@@ -148,6 +178,9 @@ def extract(window: np.ndarray, rate_hz: float = config.TARGET_RATE_HZ) -> np.nd
     cadence, cadence_power = cadence_hz(body_magnitude, rate_hz)
 
     gyro_magnitude = np.linalg.norm(gyro, axis=1)
+
+    # Cycling rotates mostly about one axis, so energy concentrates; walking
+    # spreads it. axis_dominance is that concentration as a fraction.
     gyro_energy = np.array([float(np.mean(gyro[:, axis] ** 2)) for axis in range(3)])
     gyro_total = gyro_energy.sum()
     axis_dominance = float(gyro_energy.max() / gyro_total) if gyro_total > 0 else 0.0
@@ -192,6 +225,7 @@ def extract(window: np.ndarray, rate_hz: float = config.TARGET_RATE_HZ) -> np.nd
         _corr(acc[:, 0], acc[:, 1]), _corr(acc[:, 0], acc[:, 2]), _corr(acc[:, 1], acc[:, 2]),
     ]
 
+    # safety check to avoid adding new features in values without having matching name
     result = np.asarray(values, dtype=np.float64)
     if len(result) != N_FEATURES:
         raise AssertionError(f"produced {len(result)} features, FEATURE_NAMES declares {N_FEATURES}")
