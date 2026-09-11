@@ -23,6 +23,8 @@ def feature_cache_path(user_id: str) -> Path:
     return config.CACHE_DIR / "features" / f"{user_id}.npz"
 
 
+# Feature extraction is the slow part of training (0.33 ms per window, and
+# ~150k windows), so both stages cache to disk. Delete outputs/cache/*/ to rebuild.
 def build_features(user_id: str, overwrite: bool = False) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return ``(X, coarse_labels, epoch_ts)`` for one user, caching to disk."""
     path = feature_cache_path(user_id)
@@ -55,7 +57,12 @@ def build_context_features(user_id: str, overwrite: bool = False) -> tuple[np.nd
 def load_users(
     user_ids: list[str], with_context: bool = False
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Concatenate features for several users, tracking who each row came from."""
+    """Concatenate features for several users, tracking who each row came from.
+
+    The owner column is what keeps folds honest: windows from one person are
+    highly correlated, so a random row split would leak a subject across train
+    and test and inflate accuracy. Splits are always by user.
+    """
     Xs, ys, ts, owners = [], [], [], []
     for user_id in user_ids:
         if with_context:
@@ -71,7 +78,13 @@ def load_users(
 
 @dataclass
 class StandingSplit:
-    """Threshold separating standing in place from standing and moving."""
+    """Threshold separating standing in place from standing and moving.
+
+    ExtraSensory annotates one `standing` class, but the challenge asks for two.
+    Rather than ask a tree to invent the boundary, it is drawn once on motion
+    energy and applied as a rule, and every window it touches is tagged
+    PROVENANCE_DERIVED so a derived label is never mistaken for an annotated one.
+    """
 
     threshold: float
     n_fitted: int
@@ -94,7 +107,11 @@ def fit_standing_split(X: np.ndarray, labels: np.ndarray, seed: int = 42) -> Sta
     if len(energy) < 20:
         return StandingSplit(threshold=float(np.median(energy)) if len(energy) else 0.0, n_fitted=len(energy))
 
+    # Energy is log-normal rather than normal: still and moving differ by orders
+    # of magnitude, so the two modes only separate cleanly in log space.
     log_energy = np.log10(energy + 1e-6)
+    # Two Gaussians, one per mode; the threshold is the midpoint between their
+    # means. Fitted on fold 0 this gives 0.01526 g from 15976 standing windows.
     mixture = GaussianMixture(n_components=2, random_state=seed, n_init=3).fit(log_energy)
     order = np.argsort(mixture.means_.ravel())
     low, high = mixture.means_.ravel()[order]
@@ -114,6 +131,9 @@ def _xgb(n_classes: int, seed: int, depth: int, estimators: int) -> XGBClassifie
         tree_method="hist",
         objective="binary:logistic" if n_classes == 2 else "multi:softprob",
         eval_metric="logloss" if n_classes == 2 else "mlogloss",
+        # Stops when validation loss plateaus. Note this makes the validation
+        # split part of the model: a class missing from validation is a class
+        # early stopping cannot protect (see the running problem in run_fold).
         early_stopping_rounds=30,
         random_state=seed,
         n_jobs=-1,
@@ -121,7 +141,12 @@ def _xgb(n_classes: int, seed: int, depth: int, estimators: int) -> XGBClassifie
 
 
 def _weights(y: np.ndarray) -> np.ndarray:
-    """Inverse-frequency sample weights, so rare classes are not ignored."""
+    """Inverse-frequency sample weights, so rare classes are not ignored.
+
+    The data is severely skewed: sitting is 44.2% of windows and running 0.3%,
+    a 129x spread. Unweighted, predicting "sitting" for everything would already
+    score 44%. These weights range from 0.38 for sitting to 48.7 for running.
+    """
     classes, counts = np.unique(y, return_counts=True)
     weight = {c: len(y) / (len(classes) * n) for c, n in zip(classes, counts)}
     return np.asarray([weight[label] for label in y])
@@ -139,7 +164,13 @@ class Recogniser:
 
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Return calibrated `P(activity | window)` as (N, 7) in ACTIVITIES order."""
+        """Return calibrated `P(activity | window)` as (N, 7) in ACTIVITIES order.
+
+        Chain rule over the hierarchy: P(walking) = P(dynamic) x P(walking|dynamic).
+        Both stage-2 heads score every row; the stage-1 probability decides how
+        much weight each half of the tree gets, so nothing is hard-gated and a
+        confident leaf can still survive an uncertain branch.
+        """
         p_dynamic = self.stage1.predict_proba(X)[:, 1]
         p_static_leaf = self.stage2a.predict_proba(X)
         p_dynamic_leaf = self.stage2b.predict_proba(X)
@@ -150,6 +181,8 @@ class Recogniser:
         for index, activity in enumerate(self.dynamic_classes):
             out[:, config.ACTIVITY_INDEX[activity]] = p_dynamic * p_dynamic_leaf[:, index]
 
+        # Renormalise: the two halves are separate models, so their product does
+        # not sum to 1 on its own. A degenerate row falls back to uniform.
         total = out.sum(axis=1, keepdims=True)
         out = np.divide(out, total, where=total > 0, out=np.full_like(out, 1.0 / len(config.ACTIVITIES)))
         return _apply_temperature(out, self.temperature)
@@ -167,11 +200,18 @@ def train(
     depth: int = 6,
     estimators: int = 400,
 ) -> Recogniser:
-    """Fit the three nodes plus the derived standing split and calibration."""
+    """Fit the three nodes plus the derived standing split and calibration.
+
+    Order matters: the standing split must be fitted before the trees, because
+    it is what turns 6 coarse annotations into the 7 classes they are trained on.
+    """
     standing_split = fit_standing_split(X_train, y_train_coarse, seed)
     y_train, _ = standing_split.apply(X_train, y_train_coarse)
     y_val, _ = standing_split.apply(X_val, y_val_coarse)
 
+    # Stage 1 learns one binary question, still vs moving, which is the most
+    # reliable distinction in accelerometry. Each stage-2 head then sees only its
+    # own half of the data, so it never wastes capacity on the easy split.
     static_set, dynamic_set = set(config.STATIC_ACTIVITIES), set(config.DYNAMIC_ACTIVITIES)
 
     b_train = np.isin(y_train, list(dynamic_set)).astype(int)
@@ -193,6 +233,9 @@ def train(
 
     dynamic_mask = np.isin(y_train, list(dynamic_set))
     dynamic_val_mask = np.isin(y_val, list(dynamic_set))
+    # Classes come from the training split. A class absent from training simply
+    # cannot be predicted, and one absent from validation gets no say in early
+    # stopping, which is exactly what happens to running in folds 0 and 2.
     dynamic_classes = sorted(set(y_train[dynamic_mask]), key=lambda a: config.ACTIVITY_INDEX[a])
     stage2b = _xgb(len(dynamic_classes), seed, depth, estimators)
     stage2b.fit(
@@ -214,7 +257,12 @@ def _encode(y: np.ndarray, classes: list[str]) -> np.ndarray:
 
 
 def _apply_temperature(probabilities: np.ndarray, temperature: float) -> np.ndarray:
-    """Sharpen or soften a probability vector without changing its ranking."""
+    """Sharpen or soften a probability vector without changing its ranking.
+
+    Needed because the decoder downstream consumes these as likelihoods, not as
+    argmax decisions. Multiplying two stage probabilities tends to overstate
+    confidence; fold 0 fits T=1.14, which softens it slightly.
+    """
     if abs(temperature - 1.0) < 1e-6:
         return probabilities
     scaled = np.exp(np.log(np.clip(probabilities, 1e-12, 1.0)) / temperature)
@@ -222,7 +270,11 @@ def _apply_temperature(probabilities: np.ndarray, temperature: float) -> np.ndar
 
 
 def _fit_temperature(model: Recogniser, X_val: np.ndarray, y_val: np.ndarray) -> float:
-    """Fit one scalar temperature on held-out users by minimising NLL."""
+    """Fit one scalar temperature on held-out users by minimising NLL.
+
+    Fitted on validation rather than training, or it would simply learn the
+    overconfidence it is meant to correct.
+    """
     raw = model.predict_proba(X_val)
     truth = np.array([config.ACTIVITY_INDEX.get(label, -1) for label in y_val])
     valid = truth >= 0
@@ -248,6 +300,8 @@ def evaluate(model: Recogniser, X: np.ndarray, y_coarse: np.ndarray) -> dict:
     return {
         "accuracy": float((y_pred == y_true).mean()),
         "macro_f1": float(f1_score(y_true, y_pred, labels=present, average="macro", zero_division=0)),
+        # Reported separately so the derived standing split cannot flatter the
+        # headline number: this is accuracy on human-annotated labels alone.
         "accuracy_annotated_only": float((y_pred[annotated] == y_true[annotated]).mean()),
         "report": classification_report(y_true, y_pred, labels=present, output_dict=True, zero_division=0),
         "confusion_matrix": confusion_matrix(y_true, y_pred, labels=list(config.ACTIVITIES)).tolist(),
@@ -284,6 +338,8 @@ def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) ->
             f"accuracy {result['accuracy']:.3f}  macro-F1 {result['macro_f1']:.3f}"
         )
 
+    # The honest single-window number. Context needs neighbours; a lone window
+    # has none, so this is what Task 1 actually gets: 0.463 against 0.602.
     X_test_plain, y_test_plain, _, _ = load_users(split["test"], with_context=False)
     isolated = context.augment_isolated(X_test_plain)
     truth, _ = trained["context_aware"].standing_split.apply(isolated, y_test_plain)

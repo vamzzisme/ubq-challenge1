@@ -90,6 +90,38 @@ def load_recording(recording: str | Path) -> LoadedRecording:
     return LoadedRecording(window[None, ...], np.asarray([timestamp], dtype=np.int64), source=str(target))
 
 
+def timeline_from_model(
+    model,
+    X: np.ndarray,
+    base: np.ndarray,
+    epoch_ts: np.ndarray,
+    transitions: TimeAwareTransitions,
+    used_context: bool = True,
+    decode: bool = True,
+) -> tl.Timeline:
+    """Windows already featurised, one model, one decoded timeline.
+
+    Shared by the deployed pipeline and by the cost and robustness sweeps, which
+    both need a timeline from a model that is not the deployed one - a shallow or
+    pruned variant, or the deployed model fed a degraded signal. Keeping one copy
+    of the decode-and-build tail is what lets those sweeps report question-answering
+    accuracy rather than a per-window proxy.
+    """
+    probabilities = model.predict_proba(X)
+    if decode and len(X) > 1:
+        activities = decode_labels(probabilities, epoch_ts, transitions, "viterbi")
+    else:
+        activities = np.asarray(config.ACTIVITIES)[np.argmax(probabilities, axis=1)]
+    confidences = probabilities[np.arange(len(probabilities)), np.argmax(probabilities, axis=1)]
+    return tl.build_timeline(
+        activities=activities,
+        epoch_ts=epoch_ts,
+        X=base,
+        confidences=confidences,
+        used_context_model=used_context,
+    )
+
+
 class Pipeline:
     """Recording -> features -> activities -> decoded path -> timeline."""
 
@@ -142,17 +174,6 @@ class Pipeline:
             X = base
             model = self.context_free
 
-        probabilities = model.predict_proba(X)
-        if decode and len(X) > 1:
-            activities = decode_labels(probabilities, loaded.epoch_ts, self.transitions(), "viterbi")
-        else:
-            activities = np.asarray(config.ACTIVITIES)[np.argmax(probabilities, axis=1)]
-
-        confidences = probabilities[np.arange(len(probabilities)), np.argmax(probabilities, axis=1)]
-        return tl.build_timeline(
-            activities=activities,
-            epoch_ts=loaded.epoch_ts,
-            X=base,
-            confidences=confidences,
-            used_context_model=use_context,
+        return timeline_from_model(
+            model, X, base, loaded.epoch_ts, self.transitions(), use_context, decode
         )

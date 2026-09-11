@@ -8,17 +8,17 @@ structured answer that cites the specific stretch of signal supporting it.
 
 ```
 Query: "How long was the user walking?"
-Answer: 11559 seconds
+Answer: 15039 seconds
 Activity/Event: walking
 Evidence:
-    Timestamp(s): 25485 to 26160, 28545 to 30300, 163563 to 165558, 183483 to 184278,
-                  202223 to 202958, 255083 to 256247 (+11 shorter intervals totalling 4440 s)
+    Timestamp(s): 25125 to 26760, 27645 to 30360, 163623 to 165498, 196503 to 197718,
+                  201803 to 202958, 254963 to 256367 (+12 shorter intervals totalling 5040 s)
                   (seconds from start)
     Sensor Modality: Accelerometer, Gyroscope
     Sensor Channel(s): All
-Explanation: Walking was detected in 17 intervals spanning 11559 s in total (193 min).
-             The recording samples about 23% of wall-clock time, so this span rests on
-             3075 s of directly observed sensor data.
+Explanation: Walking was detected in 18 intervals spanning 15039 s in total (251 min).
+             The recording samples about 23% of wall-clock time, so this span of 15039 s
+             rests on 3960 s of directly observed sensor data.
 ```
 
 **All timestamps are seconds from the start of the recording.**
@@ -64,20 +64,48 @@ channels to match.
 
 Measured on an arm64 laptop CPU, single process.
 
-| configuration | accuracy | size on disk | median latency | tree nodes |
-|---|---|---|---|---|
-| full (deployed) | 0.690 | 9.10 MB | 0.37 ms | 214,421 |
-| pruned | 0.689 | 8.05 MB | 0.48 ms | 191,702 |
-| **shallow (edge)** | 0.547 | **0.95 MB** | 0.36 ms | 11,322 |
-| context-free | 0.442 | 4.69 MB | 0.32 ms | 110,998 |
+Four operating points on fold 3, each carried all the way through decoding and
+aggregation so the accuracy column is **end-to-end QA accuracy**, not a
+per-window proxy. 312 questions per point.
 
-Feature extraction adds 0.33 ms per window. `shallow` is the edge operating
-point: a 9.6× size reduction for 14 accuracy points.
+| configuration | QA accuracy | grounded | per-window acc | size on disk | median latency | tree nodes |
+|---|---|---|---|---|---|---|
+| full (deployed) | **0.568** | 0.362 | 0.690 | 9.10 MB | 0.48 ms | 214,421 |
+| pruned | 0.536 | 0.360 | 0.689 | 8.05 MB | 0.38 ms | 191,702 |
+| context-free | 0.472 | 0.260 | 0.442 | 4.69 MB | 0.42 ms | 110,998 |
+| **shallow (edge)** | 0.453 | 0.264 | 0.547 | **0.95 MB** | 0.48 ms | 11,322 |
 
-The open-world language model (Qwen2.5-0.5B-Instruct) is reported separately
-because it dominates: 494M parameters, 1,544 MB peak RSS, 8.9 s per query
-including weight loading - roughly 24,000× the cost of classifying a window.
-Only Task 4 questions that do not map onto the seven classes invoke it.
+Feature extraction adds 0.35 ms per window. `shallow` is the edge operating
+point: a **9.6× size reduction for 11.5 QA points**.
+
+The two accuracy columns disagree on the ranking, which is why the brief asks
+for the question-answering one. `shallow` reads individual windows better than
+`context-free` (0.547 against 0.442) but answers questions worse (0.453 against
+0.472): its errors cluster into whole bouts, which moves durations and counts,
+while the context-free model scatters its errors inside bouts that survive
+merging.
+
+The open-world language model is reported separately because it dominates.
+`asqa.benchmark` asks the worker which model it loaded rather than naming one,
+so the figure always describes the model that actually ran.
+
+### Robustness
+
+QA accuracy on a fixed question set as the input is deliberately degraded, on
+4,977 windows from two held-out users (fold 3). The question set is fixed
+because the reference answers come from the labels, which the degradation does
+not touch - only the signal the system reads changes.
+
+| degradation | undegraded | mild | severe |
+|---|---|---|---|
+| accelerometer noise | 0.568 | 0.448 (σ=0.01 g) | 0.407 (σ=0.2 g) |
+| dropped samples | 0.568 | 0.568 (20% lost) | 0.530 (50% lost) |
+| sampling rate | 0.568 | 0.509 (15 Hz) | 0.428 (10 Hz) |
+
+Dropout is the degradation the design absorbs: accuracy is **unchanged up to 20%
+of samples lost**, which follows from resampling by sensor timestamp rather than
+by sample index. Noise costs the most in its first step and then flattens, so
+the misses are systematic rather than progressive.
 
 Figures are in [`outputs/figures/`](outputs/figures/); the JSON behind every
 number is in [`outputs/evaluation/`](outputs/evaluation/).
@@ -177,14 +205,23 @@ python -m asqa.splits                  # rare-class-aware, user-disjoint folds
 python -m asqa.recognise --build-features
 python -m asqa.recognise --cv          # trains context-free + context-aware per fold
 python -m asqa.decode --cv             # HMM decoding, both variants, both methods
-python -m asqa.evaluate --cv           # QA scoring by question type
-python -m asqa.benchmark --fold 3      # size, latency, memory, operating points
+python -m asqa.evaluate --cv --use-slm # QA scoring by question type  [~2 h]
+python -m asqa.rubric --question-type open_world   # 1-5 explanation rubric + grader agreement
+python -m asqa.benchmark --fold 3      # QA accuracy, size, latency, memory per operating point
 python -m asqa.robustness --fold 3     # noise / dropout / sampling-rate sweeps
-python -m asqa.figures                 # the five required figures
+python -m asqa.figures                 # the five required figures, plus one supporting
 ```
 
+`--use-slm` is what produces the reported numbers: without it the Task 4
+questions that do not map onto the seven classes are left unanswered rather than
+reasoned about, and open-world accuracy collapses. Both forms write
+`outputs/evaluation/qa_cv.json`, so the cheap `python -m asqa.evaluate --cv` is
+for a quick check only - it will overwrite the headline file. Pass `--output` to
+keep them apart.
+
 Preprocessing takes roughly 15 minutes for 35 users and produces ~1.2 GB of
-cache. Everything downstream reads that cache.
+cache. Everything downstream reads that cache. The evaluation is the long pole:
+the language model answers one question in about 25 s on this hardware.
 
 Fold assignment is committed (`outputs/folds_w15.json`) so the split behind the
 reported numbers is exactly reproducible.
@@ -270,7 +307,7 @@ system.
 - **Lying vs sitting is the dominant residual confusion.** When the phone is
   off-body and still, the two are not separable from accelerometer geometry
   alone. Temporal context substantially mitigates this but does not remove it.
-- **The 0.5B language model is a weak reasoner.** Asked to judge "a wheeled or
+- **A 0.5B language model is too weak to reason here.** Asked to judge "a wheeled or
   pedal-based mode of movement" it answered "Pedal-based mode" while citing a
   *sitting* interval. Behaviour phrases that map onto the seven classes are
   therefore resolved deterministically; the model is used for prose, not verdicts.
@@ -284,8 +321,10 @@ system.
 - **Dataset.** Y. Vaizman, K. Ellis, G. Lanckriet. "Recognizing Detailed Human
   Context In-the-Wild from Smartphones and Smartwatches." *IEEE Pervasive
   Computing*, 2017. <http://extrasensory.ucsd.edu/>
-- **Language model.** Qwen2.5-0.5B-Instruct, Alibaba Cloud (Apache 2.0), used for
-  Task 4 open-world reasoning.
+- **Language model.** Qwen2.5-3B-Instruct, Alibaba Cloud (Apache 2.0), used for
+  Task 4 open-world reasoning and for grading explanations against the rubric.
+  `ASQA_SLM_MODEL` selects a different one; Qwen2.5-0.5B-Instruct is the
+  low-memory fallback.
 - **Libraries.** NumPy, SciPy, scikit-learn, XGBoost, PyTorch, Hugging Face
   Transformers, Matplotlib.
 

@@ -1,4 +1,4 @@
-"""The five figures the brief requires, drawn from committed evaluation artifacts."""
+"""The figures the brief requires, drawn from committed evaluation artifacts."""
 
 from __future__ import annotations
 
@@ -62,26 +62,35 @@ def figure_accuracy_by_question_type(output_dir: Path) -> None:
     data = _load("qa_cv.json")
     if data is None:
         return
-    by_type = data["overall"]["by_question_type"]
+    overall = data["overall"]
+    by_type = overall["by_question_type"]
     kinds = list(by_type)
     answer = [by_type[k]["answer_accuracy"] for k in kinds]
     grounded = [by_type[k]["grounded_accuracy"] for k in kinds]
+    # Defined only for the categorical types; numeric types leave a gap rather than a zero.
+    macro_f1 = [by_type[k].get("macro_f1") for k in kinds]
 
     labels = kinds + ["OVERALL\n(macro)"]
-    answer.append(data["overall"]["overall_qa_accuracy_macro"])
-    grounded.append(data["overall"]["overall_grounded_accuracy_macro"])
+    answer.append(overall["overall_qa_accuracy_macro"])
+    grounded.append(overall["overall_grounded_accuracy_macro"])
+    macro_f1.append(overall.get("overall_macro_f1"))
 
     x = np.arange(len(labels))
-    width = 0.38
-    fig, ax = plt.subplots(figsize=(11, 5.2))
-    bars_a = ax.bar(x - width / 2, answer, width, label="Answer correct", color=SLOT["blue"], zorder=3)
-    bars_g = ax.bar(x + width / 2, grounded, width, label="Answer correct AND evidence valid",
+    width = 0.27
+    fig, ax = plt.subplots(figsize=(12, 5.2))
+    bars_a = ax.bar(x - width, answer, width, label="Answer correct (accuracy)", color=SLOT["blue"], zorder=3)
+    bars_f = ax.bar(
+        [xi for xi, v in zip(x, macro_f1) if v is not None],
+        [v for v in macro_f1 if v is not None],
+        width, label="Macro-F1 over answer classes", color=SLOT["aqua"], zorder=3,
+    )
+    bars_g = ax.bar(x + width, grounded, width, label="Answer correct AND evidence valid",
                     color=SLOT["orange"], zorder=3)
 
-    for group in (bars_a, bars_g):
+    for group in (bars_a, bars_f, bars_g):
         for bar in group:
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.015,
-                    f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=8, color=INK_SECONDARY)
+                    f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=7.5, color=INK_SECONDARY)
 
     ax.axvline(len(kinds) - 0.5, color=GRID, linewidth=1)
     ax.set_ylabel("Fraction of questions")
@@ -97,8 +106,13 @@ def figure_accuracy_by_question_type(output_dir: Path) -> None:
     rules = data["scoring_rules"]
     fig.text(0.5, -0.14,
              "Correctness rule differs by type: identification, verification, comparison and open-world are scored by "
-             f"exact match; duration and grounding by {rules['duration/grounding']}; count by {rules['count']}. "
-             f"Grounded = {rules['grounded']}.\n{counts}. Overall bar is macro-averaged across types.",
+             f"exact match; duration by {rules['duration']}; grounding by {rules['grounding']}; "
+             f"count by {rules['count']}. "
+             f"Grounded = {rules['grounded']}. Macro-F1 is defined for the categorical types only, and is "
+             "shown because the classes are imbalanced and accuracy alone favours the majority answer."
+             f"\n{counts}. The overall accuracy and grounded bars are macro-averaged over all seven types; "
+             "the overall macro-F1 bar averages the four categorical types only, so it sits higher for that "
+             "reason and is not directly comparable with the bar beside it.",
              ha="center", fontsize=7.5, color=INK_SECONDARY, wrap=True)
 
     fig.tight_layout()
@@ -175,6 +189,26 @@ def figure_confusion_matrix(output_dir: Path) -> None:
     print("  fig2_confusion_matrix.png")
 
 
+def _count_tolerance_sweep(results: list[dict]) -> list[dict]:
+    """Fraction of bout counts accepted as the absolute tolerance widens."""
+    rows = [
+        r for r in results
+        if r.get("question_type") == "count" and r.get("expected_value") is not None
+    ]
+    points = []
+    for tolerance in (0, 1, 2, 3, 5, 8):
+        accepted = [
+            r["predicted_value"] is not None
+            and abs(r["predicted_value"] - r["expected_value"]) <= tolerance
+            for r in rows
+        ]
+        points.append({
+            "tolerance": tolerance,
+            "fraction": float(np.mean(accepted)) if accepted else 0.0,
+        })
+    return points
+
+
 def figure_accuracy_vs_strictness(output_dir: Path) -> None:
     data = _load("qa_cv.json")
     if data is None:
@@ -182,8 +216,12 @@ def figure_accuracy_vs_strictness(output_dir: Path) -> None:
     strictness = data["strictness"]
     iou = strictness["iou"]
     tolerance = strictness["numeric_tolerance"]
+    # Counts are numeric answers too, so the brief's tolerance axis applies to them.
+    # The per-case values are stored, so the sweep is recovered from the rows rather
+    # than re-answering 1,300 questions.
+    counts = _count_tolerance_sweep(data["results"])
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.8))
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(16.5, 4.8))
 
     xs = [p["threshold"] for p in iou]
     ys = [p["fraction"] for p in iou]
@@ -211,11 +249,27 @@ def figure_accuracy_vs_strictness(output_dir: Path) -> None:
     ax2.yaxis.grid(True, zorder=0)
     ax2.set_axisbelow(True)
 
+    xs3 = [p["tolerance"] for p in counts]
+    ys3 = [p["fraction"] for p in counts]
+    ax3.plot(xs3, ys3, "-^", color=SLOT["aqua"], linewidth=2, markersize=7, zorder=3)
+    for x, y in zip(xs3, ys3):
+        ax3.annotate(f"{y:.2f}", (x, y), textcoords="offset points", xytext=(0, 9),
+                     ha="center", fontsize=7.5, color=INK_SECONDARY)
+    ax3.set_xlabel("Count tolerance (bouts, absolute)")
+    ax3.set_ylabel("Fraction of count answers accepted")
+    ax3.set_title("Bout-count accuracy versus tolerance")
+    ax3.set_xticks(xs3)
+    ax3.set_ylim(0, max(ys3) * 1.25 + 0.05)
+    ax3.yaxis.grid(True, zorder=0)
+    ax3.set_axisbelow(True)
+
     fig.suptitle("Accuracy versus evaluation strictness", fontsize=13, y=1.02)
-    fig.text(0.5, -0.06,
+    fig.text(0.5, -0.08,
              "Left: how often a cited evidence interval overlaps the true interval, as the required overlap tightens. "
-             "Right: how often a duration or onset lands within a given tolerance. A curve that falls slowly indicates "
-             "near misses; a cliff indicates wild ones.",
+             "Middle: how often a duration or onset lands within a given tolerance. Right: the same for bout counts, "
+             "where the reported headline uses max(+/-5, 20%). A curve that falls slowly indicates near misses; a cliff "
+             "indicates wild ones. The count curve is the shallowest of the three, so the headline count accuracy is "
+             "sensitive to where the band is drawn and the band is stated wherever that number appears.",
              ha="center", fontsize=7.5, color=INK_SECONDARY)
     fig.tight_layout()
     fig.savefig(output_dir / "fig3_accuracy_vs_strictness.png", bbox_inches="tight")
@@ -261,16 +315,21 @@ def figure_accuracy_vs_overhead(output_dir: Path) -> None:
                         xytext=offset, fontsize=8.5, color=INK)
         ax.margins(x=0.18, y=0.16)
         ax.set_xlabel(xlabel)
-        ax.set_ylabel("Test accuracy")
+        ax.set_ylabel("Overall QA accuracy (macro over question types)")
         ax.set_title(title)
         ax.legend(frameon=False, loc="lower right")
         ax.yaxis.grid(True, zorder=0)
         ax.set_axisbelow(True)
 
-    accuracies = [p["accuracy"] for p in points]
-    draw(ax1, [p["size_mb"] for p in points], accuracies, "Model size on disk (MB)", "Accuracy versus model size")
+    # The brief asks for overall QA accuracy here, not per-window recognition
+    # accuracy; older benchmark files carry only the latter, so fall back to it
+    # rather than fail, and say which one was plotted in the caption.
+    is_qa = all("qa_accuracy_macro" in p for p in points)
+    accuracies = [p["qa_accuracy_macro"] if is_qa else p.get("window_accuracy", p.get("accuracy")) for p in points]
+    draw(ax1, [p["size_mb"] for p in points], accuracies, "Model size on disk (MB)",
+         "QA accuracy versus model size")
     draw(ax2, [p["median_ms"] for p in points], accuracies,
-         "Median single-window latency (ms)", "Accuracy versus inference latency")
+         "Median single-window latency (ms)", "QA accuracy versus inference latency")
 
     target = data["target"]
     slm = data.get("language_model", {})
@@ -278,6 +337,17 @@ def figure_accuracy_vs_overhead(output_dir: Path) -> None:
         f"Measured on {target['machine']} / {target['system']}, single process. "
         f"Feature extraction adds {data.get('feature_extraction_ms', float('nan')):.2f} ms per window. "
     )
+    if is_qa:
+        window_accuracies = ", ".join(
+            f"{p['configuration']} {p['window_accuracy']:.3f}" for p in points if "window_accuracy" in p
+        )
+        note += (
+            "The y-axis is end-to-end QA accuracy, macro-averaged over the seven question types, "
+            f"so each point is carried through decoding and aggregation rather than stopping at the "
+            f"classifier. Per-window recognition accuracy for the same points: {window_accuracies}. "
+        )
+    else:
+        note += "The y-axis is per-window recognition accuracy; re-run `python -m asqa.benchmark` for QA accuracy. "
     if slm and "peak_rss_mb" in slm:
         note += (
             f"The open-world language model is reported separately and dominates: "
@@ -299,17 +369,22 @@ def figure_robustness(output_dir: Path) -> None:
     if data is None:
         return
     curves = data["curves"]
+    # The brief puts accuracy on a fixed question set on this y-axis. Older
+    # robustness files carry only per-window accuracy, so fall back to it.
+    metric = "qa_accuracy" if all(
+        "qa_accuracy" in point for series in curves.values() for point in series
+    ) else "accuracy"
     panels = [
         ("noise", "Accelerometer noise sigma (g)", "Additive sensor noise", SLOT["blue"], False),
         ("dropout", "Samples lost (%)", "Dropped samples", SLOT["orange"], True),
         ("sample_rate", "Sampling rate (Hz)", "Reduced sampling rate", SLOT["aqua"], False),
     ]
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.6))
-    clean = curves["noise"][0]["accuracy"]
+    clean = curves["noise"][0][metric]
 
     for ax, (key, xlabel, title, colour, as_percent) in zip(axes, panels):
         xs = [p["level"] * (100 if as_percent else 1) for p in curves[key]]
-        ys = [p["accuracy"] for p in curves[key]]
+        ys = [p[metric] for p in curves[key]]
         ax.plot(xs, ys, "-o", color=colour, linewidth=2, markersize=7, zorder=3)
         for x, y in zip(xs, ys):
             ax.annotate(f"{y:.2f}", (x, y), textcoords="offset points", xytext=(0, 9),
@@ -324,19 +399,117 @@ def figure_robustness(output_dir: Path) -> None:
         ax.set_axisbelow(True)
         if key == "sample_rate":
             ax.invert_xaxis()
-    axes[0].set_ylabel("Per-window accuracy (decoded)")
+    axes[0].set_ylabel(
+        "QA accuracy on a fixed question set" if metric == "qa_accuracy"
+        else "Per-window accuracy (decoded)"
+    )
 
     fig.suptitle("Robustness to degraded input", fontsize=13, y=1.03)
     fig.text(0.5, -0.07,
              f"Degradations applied to the raw 25 Hz windows before feature extraction, on "
              f"{data['n_windows']:,} windows from {len(data['users'])} held-out users. "
              "Noise is scaled by each window's measured gravity so a level means the same thing across devices "
-             "reporting in g and in m/s^2.",
+             "reporting in g and in m/s^2. "
+             + ("The y-axis is question-answering accuracy, macro-averaged over question types, on the same "
+                "question set at every level: the reference answers depend only on the labels, which the "
+                "degradation does not touch, so only the signal the system reads changes."
+                if metric == "qa_accuracy" else
+                "The y-axis is per-window recognition accuracy; re-run `python -m asqa.robustness` for QA accuracy."),
              ha="center", fontsize=7.5, color=INK_SECONDARY)
     fig.tight_layout()
     fig.savefig(output_dir / "fig5_robustness.png", bbox_inches="tight")
     plt.close(fig)
     print("  fig5_robustness.png")
+
+
+def figure_balanced_and_error(output_dir: Path) -> None:
+    """Required QA metrics: precision/recall/F1, error magnitude, and evidence grounding."""
+    data = _load("qa_cv.json")
+    if data is None:
+        return
+    overall = data["overall"]
+    by_type = overall["by_question_type"]
+
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14, 4.6))
+
+    binary = overall.get("verification_binary")
+    if binary:
+        names = ["Precision", "Recall", "F1", "Specificity"]
+        values = [binary["precision"], binary["recall"], binary["f1"], binary["specificity"]]
+        colours = [SLOT["blue"], SLOT["orange"], SLOT["aqua"], SLOT["yellow"]]
+        bars = ax1.bar(names, values, color=colours, width=0.62, zorder=3)
+        for bar in bars:
+            ax1.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
+                     f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=8, color=INK_SECONDARY)
+        ax1.set_ylim(0, 1.15)
+        ax1.set_ylabel("Score on the positive class (Yes)")
+        # Recall covers the Yes class and specificity the No class; reporting both
+        # states performance on each answer separately, as the brief requires.
+        ax1.set_title(
+            f"Precision, recall and F1 on verification\n"
+            f"{binary['support_positive']} Yes vs {binary['support_negative']} No",
+            fontsize=10,
+        )
+        ax1.tick_params(axis="x", labelrotation=15)
+    else:
+        ax1.axis("off")
+
+    # Absolute error, in the units each type is actually answered in.
+    error_kinds = [k for k in by_type if (by_type[k].get("error") or {}).get("n_scored")]
+    if error_kinds:
+        maes = [by_type[k]["error"]["mean_absolute_error"] for k in error_kinds]
+        medians = [by_type[k]["error"]["median_absolute_error"] for k in error_kinds]
+        x = np.arange(len(error_kinds))
+        ax2.bar(x - 0.19, maes, 0.38, label="Mean", color=SLOT["blue"], zorder=3)
+        ax2.bar(x + 0.19, medians, 0.38, label="Median", color=SLOT["magenta"], zorder=3)
+        for xi, kind, mae in zip(x, error_kinds, maes):
+            mape = by_type[kind]["error"].get("mean_absolute_percentage_error")
+            if mape is not None:
+                ax2.annotate(f"{mape:.0f}% MAPE", (xi, mae), textcoords="offset points",
+                             xytext=(0, 12), ha="center", fontsize=7.5, color=INK_SECONDARY)
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(error_kinds, rotation=15, ha="right")
+        # Counts are bouts and the others are seconds, four orders of magnitude
+        # apart. A linear axis would flatten the count bars to nothing.
+        ax2.set_yscale("log")
+        ax2.set_ylabel("Absolute error, log scale (seconds; bouts for count)")
+        ax2.set_title("Error magnitude on the numeric\nanswers (duration and count)", fontsize=10)
+        ax2.legend(frameon=False, fontsize=8, loc="upper left")
+    else:
+        ax2.axis("off")
+
+    grounding_kinds = [k for k in by_type if (by_type[k].get("grounding") or {}).get("n_cited")]
+    if grounding_kinds:
+        precisions = [by_type[k]["grounding"]["grounding_precision"] for k in grounding_kinds]
+        bars = ax3.barh(grounding_kinds, precisions, color=SLOT["aqua"], height=0.6, zorder=3)
+        for bar in bars:
+            ax3.text(bar.get_width() + 0.015, bar.get_y() + bar.get_height() / 2,
+                     f"{bar.get_width():.2f}", va="center", fontsize=8, color=INK_SECONDARY)
+        ax3.set_xlim(0, 1.15)
+        ax3.set_xlabel("Fraction of cited intervals containing the named activity")
+        ax3.set_title("Evidence grounding, judged against\nthe per-window labels", fontsize=10)
+        ax3.xaxis.grid(True, zorder=0)
+    else:
+        ax3.axis("off")
+
+    for ax in (ax1, ax2):
+        ax.yaxis.grid(True, zorder=0)
+    for ax in (ax1, ax2, ax3):
+        ax.set_axisbelow(True)
+
+    fig.suptitle("Question-answering performance and error analysis", fontsize=13, y=1.03)
+    fig.text(0.5, -0.1,
+             "Left: the classification metrics the brief asks for, on the yes/no questions - precision, recall "
+             "and F1 for the Yes class, with specificity giving the same view of the No class. Centre: error "
+             "analysis for the questions answered with a number, reported as mean and median absolute error "
+             "with percentage error annotated; a mean well above the median indicates a few large misses rather "
+             "than uniform drift. Right: whether the evidence returned with each answer is correct, measured as "
+             "the fraction of cited intervals whose ground-truth window labels contain the named activity.",
+             ha="center", fontsize=7.5, color=INK_SECONDARY, wrap=True)
+    fig.tight_layout()
+    fig.savefig(output_dir / "fig6_balanced_and_error.png", bbox_inches="tight")
+    plt.close(fig)
+    print("  fig6_balanced_and_error.png")
 
 
 def main() -> int:
@@ -347,7 +520,7 @@ def main() -> int:
 
     _style()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    wanted = set(args.only) if args.only else {1, 2, 3, 4, 5}
+    wanted = set(args.only) if args.only else {1, 2, 3, 4, 5, 6}
     print(f"Writing figures to {args.output_dir}/")
 
     if 1 in wanted:
@@ -360,6 +533,8 @@ def main() -> int:
         figure_accuracy_vs_overhead(args.output_dir)
     if 5 in wanted:
         figure_robustness(args.output_dir)
+    if 6 in wanted:
+        figure_balanced_and_error(args.output_dir)
     print("Done.")
     return 0
 

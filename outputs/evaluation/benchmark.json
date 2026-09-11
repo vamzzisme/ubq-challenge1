@@ -8,63 +8,72 @@
   },
   "fold": 3,
   "test_windows": 36087,
-  "peak_rss_mb_process": 855.4,
-  "feature_extraction_ms": 0.333,
+  "peak_rss_mb_process": 777.6,
+  "feature_extraction_ms": 0.349,
   "operating_points": [
     {
       "configuration": "full",
       "note": "deployed model: hierarchical XGBoost, temporal context",
-      "accuracy": 0.6899,
+      "window_accuracy": 0.6899,
       "macro_f1": 0.6217,
       "n_features": 103,
       "tree_nodes": 214421,
       "size_mb": 9.095,
-      "mean_ms": 0.387,
-      "median_ms": 0.366,
-      "p95_ms": 0.478
+      "mean_ms": 0.485,
+      "median_ms": 0.479,
+      "p95_ms": 0.619,
+      "qa_accuracy_macro": 0.5676,
+      "qa_accuracy_micro": 0.5192,
+      "qa_grounded_accuracy_macro": 0.3618,
+      "qa_cases": 312
     },
     {
       "configuration": "context-free",
       "note": "no temporal context: 40 features",
-      "accuracy": 0.4415,
+      "window_accuracy": 0.4415,
       "macro_f1": 0.412,
       "n_features": 40,
       "tree_nodes": 110998,
       "size_mb": 4.69,
-      "mean_ms": 0.34,
-      "median_ms": 0.315,
-      "p95_ms": 0.419
+      "mean_ms": 0.496,
+      "median_ms": 0.422,
+      "p95_ms": 0.82,
+      "qa_accuracy_macro": 0.4724,
+      "qa_accuracy_micro": 0.4455,
+      "qa_grounded_accuracy_macro": 0.2602,
+      "qa_cases": 312
     },
     {
       "configuration": "shallow",
       "note": "depth 3, 100 trees: the edge candidate",
-      "accuracy": 0.5468,
+      "window_accuracy": 0.5468,
       "macro_f1": 0.5521,
       "n_features": 103,
       "tree_nodes": 11322,
       "size_mb": 0.948,
-      "mean_ms": 0.364,
-      "median_ms": 0.362,
-      "p95_ms": 0.469
+      "mean_ms": 0.483,
+      "median_ms": 0.48,
+      "p95_ms": 0.525,
+      "qa_accuracy_macro": 0.4528,
+      "qa_accuracy_micro": 0.4583,
+      "qa_grounded_accuracy_macro": 0.2636,
+      "qa_cases": 312
     },
     {
       "configuration": "pruned",
       "note": "62 of 103 features retained",
-      "accuracy": 0.6885,
+      "window_accuracy": 0.6885,
       "macro_f1": 0.5887,
       "n_features": 62,
       "tree_nodes": 191702,
       "size_mb": 8.053,
-      "mean_ms": 0.479,
-      "median_ms": 0.481,
-      "p95_ms": 0.532
+      "mean_ms": 0.386,
+      "median_ms": 0.378,
+      "p95_ms": 0.522,
+      "qa_accuracy_macro": 0.5361,
+      "qa_accuracy_micro": 0.484,
+      "qa_grounded_accuracy_macro": 0.3597,
+      "qa_cases": 312
     }
-  ],
-  "language_model": {
-    "model": "Qwen/Qwen2.5-0.5B-Instruct",
-    "parameters": 494032768,
-    "latency_s_including_cold_start": 8.92,
-    "peak_rss_mb": 1544.0,
-    "note": "Runs in an isolated process (PyTorch and XGBoost cannot share one interpreter here). Latency includes loading the weights, which dominates a single query; a served deployment would amortise it."
-  }
+  ]
 }

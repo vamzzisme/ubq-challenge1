@@ -20,25 +20,6 @@ venv/
 *.onnx
 *.tflite
 
-# Reproducible training outputs (keep the folder layout, ignore generated results)
-artifacts/*
-!artifacts/.gitkeep
-!artifacts/baseline/
-!artifacts/benchmarks/
-!artifacts/evaluation/
-!artifacts/predictions/
-!artifacts/rf_medium/
-!artifacts/timelines/
-artifacts/baseline/*
-!artifacts/baseline/.gitkeep
-artifacts/benchmarks/*
-!artifacts/benchmarks/.gitkeep
-artifacts/evaluation/*
-!artifacts/evaluation/.gitkeep
-artifacts/predictions/*
-!artifacts/predictions/.gitkeep
-artifacts/rf_medium/*
-!artifacts/rf_medium/.gitkeep
-artifacts/timelines/*
-!artifacts/timelines/.gitkeep
+# Scratch from an earlier modelling approach; nothing in asqa/ reads or writes it.
+artifacts/
 

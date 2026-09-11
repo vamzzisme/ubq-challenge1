@@ -59,12 +59,34 @@ def resample_lower(windows: np.ndarray, rate_hz: float) -> np.ndarray:
     return out
 
 
-def score(pipeline, windows: np.ndarray, epoch_ts: np.ndarray, truth: np.ndarray) -> float:
+def score(pipeline, windows: np.ndarray, epoch_ts: np.ndarray, truth: np.ndarray) -> dict[str, float]:
+    """Per-window accuracy and question-answering accuracy on one degraded signal.
+
+    The brief puts accuracy on a fixed question set on the y-axis of the robustness
+    figure. The question set is fixed because the reference labels never change with
+    the degradation - only the signal the system reads does - so the same questions,
+    with the same answers, are re-asked of each degraded timeline. Per-window
+    accuracy is kept beside it because the gap between the two is informative: a
+    degradation that scatters window errors through a long bout barely moves a
+    duration answer, while one that removes the bout changes several answers at once.
+    """
+    from asqa.evaluate import evaluate_recording, summarise
+    from asqa.pipeline import timeline_from_model
+
     X = feat.extract_batch(windows)
     Xc = context.augment(X, epoch_ts)
     probabilities = pipeline.context_aware.predict_proba(Xc)
     predicted = decode_labels(probabilities, epoch_ts, pipeline.transitions(), "viterbi")
-    return float((predicted == truth).mean())
+
+    timeline = timeline_from_model(
+        pipeline.context_aware, Xc, X, epoch_ts, pipeline.transitions(), used_context=True
+    )
+    summary = summarise(evaluate_recording(timeline, truth, epoch_ts))
+    return {
+        "accuracy": float((predicted == truth).mean()),
+        "qa_accuracy": float(summary["overall_qa_accuracy_macro"]),
+        "qa_grounded_accuracy": float(summary["overall_grounded_accuracy_macro"]),
+    }
 
 
 def main() -> int:
@@ -101,26 +123,26 @@ def main() -> int:
 
     results: dict[str, list[dict]] = {}
 
-    print(f"{'noise sigma (g)':<18}{'accuracy':>10}")
+    print(f"{'noise sigma (g)':<18}{'window acc':>10}{'QA accuracy':>14}")
     results["noise"] = []
     for sigma in NOISE_LEVELS:
-        accuracy = score(pipeline, add_noise(windows, sigma, rng), epoch_ts, truth)
-        results["noise"].append({"level": sigma, "accuracy": accuracy})
-        print(f"{sigma:<18.3f}{accuracy:>10.3f}")
+        scores = score(pipeline, add_noise(windows, sigma, rng), epoch_ts, truth)
+        results["noise"].append({"level": sigma, **scores})
+        print(f"{sigma:<18.3f}{scores['accuracy']:>10.3f}{scores['qa_accuracy']:>14.3f}")
 
-    print(f"\n{'dropout rate':<18}{'accuracy':>10}")
+    print(f"\n{'dropout rate':<18}{'window acc':>10}{'QA accuracy':>14}")
     results["dropout"] = []
     for rate in DROPOUT_RATES:
-        accuracy = score(pipeline, drop_samples(windows, rate, rng), epoch_ts, truth)
-        results["dropout"].append({"level": rate, "accuracy": accuracy})
-        print(f"{rate:<18.2f}{accuracy:>10.3f}")
+        scores = score(pipeline, drop_samples(windows, rate, rng), epoch_ts, truth)
+        results["dropout"].append({"level": rate, **scores})
+        print(f"{rate:<18.2f}{scores['accuracy']:>10.3f}{scores['qa_accuracy']:>14.3f}")
 
-    print(f"\n{'sample rate (Hz)':<18}{'accuracy':>10}")
+    print(f"\n{'sample rate (Hz)':<18}{'window acc':>10}{'QA accuracy':>14}")
     results["sample_rate"] = []
     for rate_hz in SAMPLE_RATES:
-        accuracy = score(pipeline, resample_lower(windows, rate_hz), epoch_ts, truth)
-        results["sample_rate"].append({"level": rate_hz, "accuracy": accuracy})
-        print(f"{rate_hz:<18.1f}{accuracy:>10.3f}")
+        scores = score(pipeline, resample_lower(windows, rate_hz), epoch_ts, truth)
+        results["sample_rate"].append({"level": rate_hz, **scores})
+        print(f"{rate_hz:<18.1f}{scores['accuracy']:>10.3f}{scores['qa_accuracy']:>14.3f}")
 
     payload = {"fold": args.fold, "n_windows": int(len(windows)), "users": users, "curves": results}
     config.EVALUATION_DIR.mkdir(parents=True, exist_ok=True)

@@ -11,8 +11,6 @@ from asqa import config
 from asqa.answer import Answer, find_activities, find_group
 from asqa.timeline import Interval, Timeline, evidence_block
 
-MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
-
 MENU_SIZE = 12
 
 WORKER_TIMEOUT_S = 600

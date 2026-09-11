@@ -211,10 +211,123 @@ def generate(question: str, menu: str, max_new_tokens: int = 320) -> dict:
     raise ValueError(f"model returned no usable JSON object: {last[:200]!r}")
 
 
+# The rubric is fixed text so that every explanation is judged against the same
+# wording, whether the grader is this model or a person reading the same sheet.
+RUBRIC_CRITERIA = {
+    "cites_features": (
+        "Does the explanation cite real measured signal features from the evidence "
+        "(energy, cadence, tilt, rotation, times) rather than vague or invented claims?"
+    ),
+    "features_support": (
+        "Do the features it cites actually support the conclusion it draws?"
+    ),
+    "plausible": (
+        "Is the conclusion plausible for a wearable accelerometer and gyroscope recording?"
+    ),
+}
+
+RUBRIC_PROMPT = """You are grading one explanation produced by a sensor question-answering system.
+
+Grade ONLY the criterion you are given, on this scale:
+1 = not at all
+2 = barely
+3 = partly
+4 = largely
+5 = fully
+
+Reply with a single digit from 1 to 5 and nothing else."""
+
+
+def judge(items: list[dict], temperature: float = 0.0) -> dict:
+    """Score explanations against the fixed rubric by reading the digit logits.
+
+    Generating the digit invites a 3B model to write a sentence instead; scoring the
+    five digit tokens directly always yields a grade, and at temperature 0 the same
+    explanation always receives the same one.
+    """
+    torch, model, tokenizer = _load()
+    digit_ids = [
+        {tokenizer.encode(form, add_special_tokens=False)[0] for form in (d, " " + d)}
+        for d in "12345"
+    ]
+
+    graded = []
+    for item in items:
+        scores = {}
+        for name, criterion in RUBRIC_CRITERIA.items():
+            prompt = (
+                f"Question: {item.get('question', '')}\n"
+                f"Evidence cited: {item.get('evidence', 'none')}\n"
+                f"Answer given: {item.get('answer', '')}\n"
+                f"Explanation: {item.get('explanation', '')}\n\n"
+                f"Criterion: {criterion}"
+            )
+            messages = [
+                {"role": "system", "content": RUBRIC_PROMPT},
+                {"role": "user", "content": prompt},
+            ]
+            text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = tokenizer([text], return_tensors="pt").to(model.device)
+            with torch.no_grad():
+                logits = model(**inputs).logits[0, -1]
+            per_digit = torch.tensor(
+                [max(float(logits[i]) for i in ids) for ids in digit_ids]
+            )
+            if temperature > 0:
+                probs = torch.softmax(per_digit / temperature, dim=0)
+                scores[name] = int(torch.multinomial(probs, 1).item()) + 1
+            else:
+                scores[name] = int(torch.argmax(per_digit).item()) + 1
+        graded.append(scores)
+    return {"grades": graded}
+
+
+def embed(pairs: list[list[str]]) -> dict:
+    """Cosine similarity between mean-pooled hidden states of each text pair.
+
+    Secondary to the rubric by design: it rewards surface overlap, so it is reported
+    as a proxy and never as the headline.
+    """
+    torch, model, tokenizer = _load()
+
+    def vector(text: str):
+        inputs = tokenizer([text or ""], return_tensors="pt", truncation=True, max_length=512)
+        inputs = {k: v.to(model.device) for k, v in inputs.items()}
+        with torch.no_grad():
+            states = model(**inputs, output_hidden_states=True).hidden_states[-1][0]
+        mask = inputs["attention_mask"][0].unsqueeze(-1).float()
+        pooled = (states.float() * mask).sum(0) / mask.sum().clamp(min=1)
+        return pooled / pooled.norm().clamp(min=1e-9)
+
+    return {"similarities": [float(torch.dot(vector(a), vector(b))) for a, b in pairs]}
+
+
+def describe() -> dict:
+    """The identity and size of the model this worker actually loads.
+
+    The cost figures in the report must name the model that ran, so the benchmark
+    asks the worker rather than repeating a constant that can drift from the
+    default the worker resolves at import time.
+    """
+    _, model, _ = _load()
+    return {
+        "model": MODEL_ID,
+        "parameters": int(sum(p.numel() for p in model.parameters())),
+        "dtype": str(next(model.parameters()).dtype),
+        "device": str(model.device),
+    }
+
+
 def main() -> int:
     try:
         request = json.loads(sys.stdin.read())
-        if request.get("mode") == "choose":
+        if request.get("mode") == "meta":
+            payload = describe()
+        elif request.get("mode") == "judge":
+            payload = judge(request["items"], request.get("temperature", 0.0))
+        elif request.get("mode") == "embed":
+            payload = embed(request["pairs"])
+        elif request.get("mode") == "choose":
             payload = choose(request["question"])
         elif request.get("mode") == "parse":
             payload = parse(request["question"], request.get("max_new_tokens", 120))
