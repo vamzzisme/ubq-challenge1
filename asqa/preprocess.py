@@ -17,6 +17,8 @@ from asqa import config
 
 def load_capture(path: Path) -> np.ndarray:
     """Load one ``.dat`` capture as an (N, 4) array of ``uptime, x, y, z``."""
+    # Column 0 is device uptime in seconds, not wall-clock. Acc and gyro are
+    # written against the same uptime clock, which is what lets us align them.
     values = np.loadtxt(path, dtype=np.float64)
     if values.ndim == 1:
         values = values.reshape(1, -1)
@@ -42,11 +44,16 @@ def resample_to_grid(
     min_overlap_s: float = config.MIN_OVERLAP_S,
 ) -> tuple[np.ndarray, dict[str, float]] | WindowRejection:
     """Interpolate acc and gyro onto one shared uniform grid."""
+    # The two sensors are sampled on separate, skewed clocks at different rates.
+    # Pairing them by index => growing offset. Instead both
+    # are interpolated onto one absolute time grid. sample i of acc and sample
+    # i of gyro describe the same instant.
     if len(acc) < 2 or len(gyro) < 2:
         return WindowRejection("too_few_samples", f"acc={len(acc)} gyro={len(gyro)}")
 
     acc_t, gyro_t = acc[:, 0], gyro[:, 0]
 
+    # np.interp needs strictly increasing x, and captures are not always ordered.
     acc_order, gyro_order = np.argsort(acc_t), np.argsort(gyro_t)
     acc, gyro = acc[acc_order], gyro[gyro_order]
     acc_t, gyro_t = acc[:, 0], gyro[:, 0]
@@ -54,23 +61,30 @@ def resample_to_grid(
     if not (np.isfinite(acc).all() and np.isfinite(gyro).all()):
         return WindowRejection("non_finite")
 
+    # rejct across a drop. interpolation over
+    # 0.5 s would get a straight line, which
+    # then gets cited as evidence.
     acc_gap = float(np.max(np.diff(acc_t))) if len(acc_t) > 1 else np.inf
     gyro_gap = float(np.max(np.diff(gyro_t))) if len(gyro_t) > 1 else np.inf
     max_gap = max(acc_gap, gyro_gap)
     if max_gap > max_gap_s:
         return WindowRejection("gap_too_large", f"{max_gap:.3f}s")
 
+    # use only the overlap where both sensors were actually recording.
     start = max(acc_t[0], gyro_t[0])
     end = min(acc_t[-1], gyro_t[-1])
     overlap_s = end - start
     if overlap_s < min_overlap_s:
         return WindowRejection("insufficient_overlap", f"{overlap_s:.2f}s")
 
+    # The grid is anchored at the start of the overlap and is exactly
+    # n_samples long, so every window has an identical duration and sample count.
     period = 1.0 / rate_hz
     grid = start + np.arange(n_samples, dtype=np.float64) * period
     if grid[-1] > end + 1e-9:
         return WindowRejection("insufficient_overlap", f"{overlap_s:.2f}s")
 
+    # 6 channels in a fixed order: acc x,y,z then gyro x,y,z
     channels = [np.interp(grid, acc_t, acc[:, axis]) for axis in (1, 2, 3)]
     channels += [np.interp(grid, gyro_t, gyro[:, axis]) for axis in (1, 2, 3)]
     window = np.column_stack(channels).astype(np.float32)
@@ -90,6 +104,8 @@ def resample_to_grid(
 
 def load_labels(user_id: str) -> dict[int, str]:
     """Map ``epoch timestamp -> coarse activity`` for one user."""
+    # dataset is multi-label. rows with two or more of our classes active
+    # are skipped, so every training label is unique
     path = config.DATA_DIR / f"{user_id}{config.LABEL_SUFFIX}"
     labels: dict[int, str] = {}
     with path.open(newline="", encoding="utf-8") as handle:
@@ -116,7 +132,11 @@ class UserCache:
 
 
 def preprocess_user(user_id: str, limit: int | None = None, verbose: bool = True) -> UserCache:
-    """Reconstruct every labelled window for one user at a true 25 Hz."""
+    """Reconstruct every labelled window for one user at a true 25 Hz.
+
+    One capture file yields at most one window, so counts here are per minute of
+    recording rather than per sliding window.
+    """
     acc_dir = config.ACC_DIR / user_id
     gyro_dir = config.GYRO_DIR / user_id
     if not acc_dir.is_dir() or not gyro_dir.is_dir():
@@ -126,9 +146,11 @@ def preprocess_user(user_id: str, limit: int | None = None, verbose: bool = True
 
     acc_ts = {int(p.name.split(".", 1)[0]) for p in acc_dir.glob(f"*{config.ACC_SUFFIX}")}
     gyro_ts = {int(p.name.split(".", 1)[0]) for p in gyro_dir.glob(f"*{config.GYRO_SUFFIX}")}
+    # A window is only usable if all three exist: acc file, gyro file, and label.
     usable = sorted(acc_ts & gyro_ts & labels.keys())
 
     rejections: Counter = Counter()
+    # Book-keeping for the report: why candidates were lost before resampling.
     rejections["no_gyro_pair"] = len(acc_ts & labels.keys()) - len(usable)
     rejections["unlabelled"] = len(acc_ts & gyro_ts) - len(usable)
 
@@ -163,6 +185,7 @@ def preprocess_user(user_id: str, limit: int | None = None, verbose: bool = True
         kept_ts.append(timestamp)
         kept_uptime.append(diagnostics["grid_start_uptime_s"])
         kept_labels.append(labels[timestamp])
+        # Summed here, divided by the kept count below to give per-user means.
         for key in ("overlap_s", "acc_span_s", "gyro_span_s", "acc_effective_hz", "gyro_effective_hz"):
             diag_accumulator[key] += diagnostics[key]
 
@@ -222,6 +245,8 @@ def load_cached(user_id: str) -> UserCache:
 
 def available_users() -> list[str]:
     """Users with raw acc, raw gyro, and a label file all present."""
+    # Requires the raw capture tree. Once caches are built, downstream layers
+    # read cached_users() instead and the raw data is no longer needed.
     acc = {p.name for p in config.ACC_DIR.iterdir() if p.is_dir()}
     gyro = {p.name for p in config.GYRO_DIR.iterdir() if p.is_dir()}
     labelled = {p.name.replace(config.LABEL_SUFFIX, "") for p in config.DATA_DIR.glob(f"*{config.LABEL_SUFFIX}")}
