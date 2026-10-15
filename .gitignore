@@ -23,3 +23,6 @@ venv/
 # Scratch from an earlier modelling approach; nothing in asqa/ reads or writes it.
 artifacts/
 
+
+# Raw archives exceed GitHub's 100 MB limit
+data/**/*.zip
