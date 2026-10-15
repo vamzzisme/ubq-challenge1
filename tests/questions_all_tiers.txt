@@ -1,0 +1,26 @@
+# Task 1 -- activity identification and binary verification
+What activity is the user performing?
+What activity was the user doing at 25500 seconds?
+Is the user running?
+Did the user walk at any point?
+Was the user bicycling?
+
+# Task 2 -- temporal and quantitative reasoning
+How long was the user walking?
+How much time did the user spend sitting?
+How many times did the user walk?
+How often was the user lying down?
+Did the user spend more time walking or sitting?
+Which activity took the most time?
+
+# Task 3 -- evidence grounding
+Did the user begin walking at any point, and if so, when?
+When did the user first start lying down?
+When was the user standing in place?
+
+# Task 4 -- open-world reasoning
+Did the user lie down for a prolonged period?
+Was the user using a wheeled or pedal-based mode of movement?
+Was the user doing anything strenuous?
+How much of the recording did the user spend resting?
+Is the evidence consistent with someone who was mostly sedentary?

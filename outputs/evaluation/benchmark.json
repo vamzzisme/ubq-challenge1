@@ -1,0 +1,88 @@
+{
+  "target": {
+    "machine": "arm64",
+    "processor": "arm",
+    "system": "Darwin 27.0.0",
+    "python": "3.14.7",
+    "note": "Laptop-class CPU; single process, no GPU used for the classifier."
+  },
+  "fold": 0,
+  "test_windows": 31417,
+  "peak_rss_mb_process": 858.5,
+  "feature_extraction_ms": 0.338,
+  "operating_points": [
+    {
+      "configuration": "full",
+      "note": "deployed model: hierarchical XGBoost, temporal context",
+      "window_accuracy": 0.6429,
+      "macro_f1": 0.4914,
+      "n_features": 111,
+      "tree_nodes": 101351,
+      "size_mb": 4.721,
+      "mean_ms": 0.49,
+      "median_ms": 0.445,
+      "p95_ms": 0.569,
+      "qa_accuracy_macro": 0.5751,
+      "qa_accuracy_micro": 0.57,
+      "qa_grounded_accuracy_macro": 0.3353,
+      "qa_cases": 200
+    },
+    {
+      "configuration": "context-free",
+      "note": "no temporal context: 40 features",
+      "window_accuracy": 0.4958,
+      "macro_f1": 0.3939,
+      "n_features": 40,
+      "tree_nodes": 133689,
+      "size_mb": 5.903,
+      "mean_ms": 0.487,
+      "median_ms": 0.476,
+      "p95_ms": 0.562,
+      "qa_accuracy_macro": 0.5744,
+      "qa_accuracy_micro": 0.55,
+      "qa_grounded_accuracy_macro": 0.3512,
+      "qa_cases": 200
+    },
+    {
+      "configuration": "shallow",
+      "note": "depth 3, 100 trees: the edge candidate",
+      "window_accuracy": 0.6062,
+      "macro_f1": 0.4381,
+      "n_features": 111,
+      "tree_nodes": 10292,
+      "size_mb": 0.847,
+      "mean_ms": 0.457,
+      "median_ms": 0.447,
+      "p95_ms": 0.505,
+      "qa_accuracy_macro": 0.5417,
+      "qa_accuracy_micro": 0.515,
+      "qa_grounded_accuracy_macro": 0.3014,
+      "qa_cases": 200
+    },
+    {
+      "configuration": "pruned",
+      "note": "67 of 111 features retained",
+      "window_accuracy": 0.6265,
+      "macro_f1": 0.4512,
+      "n_features": 67,
+      "tree_nodes": 95537,
+      "size_mb": 4.335,
+      "mean_ms": 0.521,
+      "median_ms": 0.529,
+      "p95_ms": 0.626,
+      "qa_accuracy_macro": 0.5703,
+      "qa_accuracy_micro": 0.545,
+      "qa_grounded_accuracy_macro": 0.3292,
+      "qa_cases": 200
+    }
+  ],
+  "language_model": {
+    "model": "Qwen/Qwen2.5-3B-Instruct",
+    "parameters": 3085938688,
+    "dtype": "torch.float16",
+    "device": "mps:0",
+    "latency_s_including_cold_start": 26.52,
+    "peak_rss_mb": 3168.6,
+    "note": "Runs in an isolated process (PyTorch and XGBoost cannot share one interpreter here). Latency includes loading the weights, which dominates a single query; a served deployment would amortise it. Set ASQA_SLM_MODEL to measure a different operating point."
+  }
+}

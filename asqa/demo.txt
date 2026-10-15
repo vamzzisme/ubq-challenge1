@@ -1,0 +1,9 @@
+# Training user
+python3 run.py --recording 00EABED2-271D-49D8-B599-1D4A09240601 --question "How long was the user walking?" --no-slm
+# testing user 
+python3 run.py --recording "data/5 new users/acc/136562B6-95B2-483D-88DC-065F28409FD2" --question "Was the user cycling?" --no-slm
+# One 15-second window (Task 1)
+python3 run.py --recording "data/5 new users/acc/136562B6-95B2-483D-88DC-065F28409FD2/1439926672.m_raw_acc.dat" --question "What is the user doing?" --no-slm
+
+
+python -m asqa.evaluate --cv

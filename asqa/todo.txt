@@ -1,0 +1,2 @@
+1. re-train with no new class (standind and moving is removed)
+2. 

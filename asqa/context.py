@@ -1,0 +1,168 @@
+"""L2b temporal context features over a recording's ordered windows."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+import numpy as np
+
+from asqa import config, features as feat
+
+# Neighbourhood sizes, counted in windows on either side.
+# roughly +/- 2, 5, 15 and 30 minutes. Four scales
+# because the useful timespane differs by activity
+RADII: tuple[int, ...] = (2, 5, 15, 30)
+
+# Neighbours further away than 40 minutes are ignored even if they are adjacent
+# in the array. Recordings are intermittent, so the window before this one may be
+# from yesterday, and averaging it in would invent continuity that never existed.
+MAX_CONTEXT_S = 2400.0
+
+# Only five of the 40 base features get context. Doing it for all 40 
+# is not useful by intuition. these five each answer a
+# different question, how much motion, what posture, what rhythm, how much
+# rotation, how ordered the spectrum
+CONTEXT_CHANNELS: tuple[str, ...] = (
+    "body_acc_rms",
+    "gravity_tilt_deg",
+    "cadence_hz",
+    "gyro_rms",
+    "spectral_entropy",
+)
+
+# Time of day, encoded as in Vaizman et al. (2017): eight 6-hour ranges starting
+# every 3 hours, so each hour switches on exactly two of them. Local time,
+# because "night" is a property of the wall clock, not of UTC.
+TIME_OF_DAY_STARTS: tuple[int, ...] = (0, 3, 6, 9, 12, 15, 18, 21)
+
+
+def feature_names() -> list[str]:
+    """Names of the context columns, in the order `augment` emits them."""
+    names: list[str] = []
+    for channel in CONTEXT_CHANNELS:
+        for radius in RADII:
+            names.append(f"ctx_{channel}_mean_{radius}")
+            names.append(f"ctx_{channel}_std_{radius}")
+        names.extend(
+            [
+                f"ctx_{channel}_prev",
+                f"ctx_{channel}_next",
+                f"ctx_{channel}_delta_prev",
+                f"ctx_{channel}_delta_next",
+            ]
+        )
+    names.extend(["ctx_gap_prev_s", "ctx_gap_next_s", "ctx_neighbours_within_30min"])
+    names.extend(f"tod_{start:02d}_{(start + 6) % 24:02d}" for start in TIME_OF_DAY_STARTS)
+    return names
+
+
+N_CONTEXT_FEATURES = len(feature_names())
+
+
+def time_of_day(epoch_ts: np.ndarray) -> np.ndarray:
+    """(N, 8) binary time-of-day bins from Unix timestamps."""
+    zone = ZoneInfo(config.LOCAL_TIMEZONE)
+    hours = np.array([datetime.fromtimestamp(int(t), zone).hour for t in epoch_ts])
+    starts = np.asarray(TIME_OF_DAY_STARTS)
+    return (((hours[:, None] - starts[None, :]) % 24) < 6).astype(np.float64)
+
+
+def _rolling(values: np.ndarray, times: np.ndarray, radius: int) -> tuple[np.ndarray, np.ndarray]:
+    """Time-bounded rolling mean and std over +/- 'radius' windows.
+
+    The window is centred, so it reads forwards as well as backwards.
+    """
+    n = len(values)
+    means = np.empty(n)
+    stds = np.empty(n)
+    for index in range(n):
+        low = max(0, index - radius)
+        high = min(n, index + radius + 1)
+        # Two filters: at most 'radius' neighbours by position, and at most
+        # MAX_CONTEXT_S away by clock. Both must hold.
+        window_times = times[low:high]
+        near = np.abs(window_times - times[index]) <= MAX_CONTEXT_S
+        selected = values[low:high][near]
+
+        # Isolated window: fall back to its own value, so the column is never
+        # empty and a lone window looks like a flat neighbourhood rather than a
+        # missing one.
+        if len(selected) == 0:
+            means[index] = values[index]
+            stds[index] = 0.0
+        else:
+            means[index] = selected.mean()
+            stds[index] = selected.std()
+    return means, stds
+
+
+def augment(X: np.ndarray, epoch_ts: np.ndarray) -> np.ndarray:
+    """Append temporal-context columns to one recording's feature matrix.
+
+    40 base features in, 111 out.
+    """
+    if len(X) != len(epoch_ts):
+        raise ValueError(f"X has {len(X)} rows but epoch_ts has {len(epoch_ts)}")
+    if len(X) == 0:
+        return X.reshape(0, X.shape[1] + N_CONTEXT_FEATURES)
+
+    # Neighbour arithmetic only means anything in time order, but the caller
+    # expects rows back in the order it passed them, so the permutation is
+    # undone at the end.
+    order = np.argsort(epoch_ts)
+    ordered = X[order]
+    times = np.asarray(epoch_ts, dtype=np.float64)[order]
+    n = len(ordered)
+
+    columns: list[np.ndarray] = []
+    for channel in CONTEXT_CHANNELS:
+        values = ordered[:, feat.FEATURE_NAMES.index(channel)]
+        for radius in RADII:
+            means, stds = _rolling(values, times, radius)
+            columns.append(means)
+            columns.append(stds)
+
+        # Immediate neighbours, with the first and last row repeating themselves
+        # so the arrays stay the same length.
+        previous = np.r_[values[:1], values[:-1]]
+        following = np.r_[values[1:], values[-1:]]
+        gap_before = np.r_[[0.0], np.diff(times)]
+        gap_after = np.r_[np.diff(times), [0.0]]
+
+        # Across a long recording gap, treat the window as its own neighbour:
+        # the delta then reads 0 (no change observed) instead of a large jump
+        # that only reflects the gap.
+        previous = np.where(gap_before <= MAX_CONTEXT_S, previous, values)
+        following = np.where(gap_after <= MAX_CONTEXT_S, following, values)
+        columns.extend([previous, following, np.abs(values - previous), np.abs(values - following)])
+
+    gap_before = np.r_[[0.0], np.diff(times)]
+    gap_after = np.r_[np.diff(times), [0.0]]
+
+    # How busy this stretch of recording is. A window surrounded by 30 others
+    # is mid-session; a lone one is a fragment.
+    within = np.array(
+        [int(np.sum(np.abs(times - times[i]) <= 1800.0) - 1) for i in range(n)], dtype=np.float64
+    )
+    columns.extend([gap_before, gap_after, within])
+    columns.extend(time_of_day(times).T)
+
+    # Restore the caller's original row order.
+    augmented = np.column_stack([ordered] + columns)
+    result = np.empty_like(augmented)
+    result[order] = augmented
+    return result
+
+
+def augment_isolated(X: np.ndarray, epoch_ts: np.ndarray | None = None) -> np.ndarray:
+    """Context columns for windows with no neighbours
+
+    Each window is augmented alone, so every context column degenerates to the
+    window's own value. Its timestamp still sets the time-of-day bins.
+    """
+    times = np.zeros(len(X)) if epoch_ts is None else epoch_ts
+    return np.vstack([augment(X[i : i + 1], times[i : i + 1]) for i in range(len(X))])
+
+
+FEATURE_NAMES_FULL = tuple(feat.FEATURE_NAMES) + tuple(feature_names())

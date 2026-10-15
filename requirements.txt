@@ -1,6 +1,18 @@
+# Core numerics
 numpy>=1.24
+scipy>=1.11
+pandas>=2.0
+
+# Recognition layer
 scikit-learn>=1.4
+xgboost>=2.0
 joblib>=1.3
+
+# Interface layer (Task 4 open-world reasoning)
 torch>=2.0
 transformers>=4.40
 accelerate>=0.29
+
+# Figures
+matplotlib>=3.7
+seaborn>=0.13
