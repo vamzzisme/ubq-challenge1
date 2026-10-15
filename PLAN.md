@@ -74,14 +74,29 @@ Lying 0.775 → 0.831 F1, sitting 0.712 → 0.734, standing 0.307 → 0.334; run
 - Use the paper's encoding: San Diego local hour, 8 half-overlapping bins (00–06, 03–09, 06–12, 09–15, 12–18, 15–21, 18–24, 21–03).
 - Target: the lying vs sitting confusion.
 
-### 3. Label cleaning (≈2.5 h)
+### 3. Label cleaning (≈2.5 h) — DONE
+
+- The paper's rules turned out to be already applied (`FIX_*` columns), with 0 violations.
+- Our off-body rule is in `recognise.clean_mask`.
+- Raw-test macro-F1 0.561 → 0.566; cleaned-test 0.583.
+- See RESULTS.md.
+
+Original plan:
 - Paper rules, using the other labels in the label files:
   - walking and running are false when on a bus, in a car, driving, motorbike, skateboarding or at the pool;
   - running is also false during baseball or frisbee.
 - Our rule: drop walking and running windows whose body-acceleration energy is at lying level (phone not on the person).
 - Clean training data only. Report test results on both raw and cleaned labels.
 
-### 4. Reproduce the paper on our data (≈3.5 h)
+### 4. Reproduce the paper on our data (≈3.5 h) — DONE
+
+- `asqa/paper_baseline.py`: the reproduction matches the paper's published per-label BA within about 0.02.
+- With Acc+Gyro, ours wins on every metric.
+- On multiclass metrics, ours also beats the paper's 6-sensor system.
+- On the paper's own per-label binary BA, ours trails the 6-sensor system (0.744 vs 0.776).
+- See RESULTS.md.
+
+Original plan:
 - Paper pipeline:
   - standardise features;
   - logistic regression with balanced class weights;

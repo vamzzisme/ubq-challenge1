@@ -75,6 +75,25 @@ def load_users(
     return np.vstack(Xs), np.concatenate(ys), np.concatenate(ts), np.concatenate(owners)
 
 
+# Label cleaning. ExtraSensory's FIX_walking / FIX_running already carry the
+# paper's rule-based corrections, so what remains is windows labelled as moving
+# whose signal shows no motion: the phone was on a table or in a still bag, and
+# no phone-only model can see the activity. A moving window at or below this
+# percentile of training lying-down energy (~0.008 g) is dropped from training
+# and validation. Test labels are never touched.
+OFF_BODY_PERCENTILE = 90.0
+
+
+def off_body_threshold(X: np.ndarray, y: np.ndarray) -> float:
+    return float(np.percentile(X[y == "lying_down", feat.BODY_RMS_INDEX], OFF_BODY_PERCENTILE))
+
+
+def clean_mask(X: np.ndarray, y: np.ndarray, threshold: float) -> np.ndarray:
+    """True for windows to keep: everything except motionless 'moving' windows."""
+    moving = np.isin(y, config.DYNAMIC_ACTIVITIES)
+    return ~(moving & (X[:, feat.BODY_RMS_INDEX] <= threshold))
+
+
 def _xgb(n_classes: int, seed: int, depth: int, estimators: int) -> XGBClassifier:
     return XGBClassifier(
         n_estimators=estimators,
@@ -253,7 +272,7 @@ def evaluate(model: Recogniser, X: np.ndarray, y_true: np.ndarray) -> dict:
     }
 
 
-def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) -> dict:
+def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True, clean: bool = True) -> dict:
     """Train the context-free and context-aware recognisers for one fold."""
     split = folds["splits"][str(fold_index)]
     metrics: dict = {"fold": fold_index, "split": split}
@@ -268,8 +287,29 @@ def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) ->
             print(
                 f"  fold {fold_index}: train {len(X_train)}, val {len(X_val)}, test {len(X_test)} windows"
             )
+        cleaning: dict = {}
+        if clean:
+            threshold = off_body_threshold(X_train, y_train)
+            keep_train, keep_val = clean_mask(X_train, y_train, threshold), clean_mask(X_val, y_val, threshold)
+            cleaning = {
+                "threshold_g": threshold,
+                "dropped_train": int((~keep_train).sum()),
+                "dropped_val": int((~keep_val).sum()),
+            }
+            X_train, y_train = X_train[keep_train], y_train[keep_train]
+            X_val, y_val = X_val[keep_val], y_val[keep_val]
+
         model = train(X_train, y_train, X_val, y_val, seed=seed)
         result = evaluate(model, X_test, y_test)
+        if clean:
+            # Secondary number only: the headline is always scored on raw labels.
+            keep_test = clean_mask(X_test, y_test, cleaning["threshold_g"])
+            cleaning["dropped_test"] = int((~keep_test).sum())
+            cleaning["on_cleaned_test"] = {
+                k: v for k, v in evaluate(model, X_test[keep_test], y_test[keep_test]).items()
+                if k in ("accuracy", "balanced_accuracy", "macro_f1")
+            }
+        result["cleaning"] = cleaning
         result["temperature"] = model.temperature
         result["n_features"] = int(X_train.shape[1])
         result["n_train"] = len(X_train)
@@ -317,6 +357,10 @@ def main() -> int:
     parser.add_argument("--cv", action="store_true", help="Run every fold.")
     parser.add_argument("--build-features", action="store_true", help="Extract and cache features, then exit.")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--no-clean", action="store_true",
+        help="Ablation: train on uncleaned labels. Saves no models; writes recognition_cv_noclean.json.",
+    )
     args = parser.parse_args()
 
     if args.build_features:
@@ -331,7 +375,7 @@ def main() -> int:
     results = []
     for index in indices:
         print(f"\nFold {index}")
-        results.append(run_fold(index, folds, seed=args.seed))
+        results.append(run_fold(index, folds, seed=args.seed, save=not args.no_clean, clean=not args.no_clean))
 
     if len(results) > 1:
         print(f"\n{'='*72}")
@@ -342,6 +386,11 @@ def main() -> int:
                 scores = [r[variant][key] for r in results]
                 cells += f"{np.mean(scores):>11.3f} +/- {np.std(scores):.3f}"
             print(f"{variant:<16}{cells}")
+        if not args.no_clean:
+            cleaned = [r["context_aware"]["cleaning"]["on_cleaned_test"] for r in results]
+            print("context_aware on cleaned test labels:  " + "  ".join(
+                f"{key} {np.mean([c[key] for c in cleaned]):.3f}" for key in ("accuracy", "balanced_accuracy", "macro_f1")
+            ))
         isolated = [r["context_aware_on_isolated_windows"] for r in results]
         print(f"\ncontext_aware on isolated windows: {np.mean(isolated):.3f} (no neighbours)")
 
@@ -358,7 +407,8 @@ def main() -> int:
                     print(f"{activity:<22}{np.mean(scores):>9.3f}{np.std(scores):>8.3f}{len(scores):>7}")
 
     config.EVALUATION_DIR.mkdir(parents=True, exist_ok=True)
-    output = config.EVALUATION_DIR / ("recognition_cv.json" if len(results) > 1 else f"recognition_fold{indices[0]}.json")
+    suffix = "_noclean" if args.no_clean else ""
+    output = config.EVALUATION_DIR / (f"recognition_cv{suffix}.json" if len(results) > 1 else f"recognition_fold{indices[0]}{suffix}.json")
     output.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     print(f"\nWrote {output}")
     return 0
