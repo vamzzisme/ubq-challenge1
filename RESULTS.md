@@ -179,6 +179,18 @@ On 6 classes, the gyroscope adds little on top of the accelerometer.
 - **Posterior vs Viterbi:** posterior beats Viterbi on macro-F1 by +0.020 (4 of 5 folds), with accuracy −0.002.
 - **On the held-out users** the two are tied.
 
+## Phase 6: robustness and resource cost (demo upkeep)
+
+- **Data:** robustness uses 2 held-out users from fold 3, 4,977 windows (`outputs/evaluation/robustness.json`). Per-window accuracy is after HMM decoding.
+- **Degradation is gradual:**
+  - accelerometer noise: 0.809 clean → 0.619 at σ = 0.2 g;
+  - dropping half the samples: 0.809 → 0.804, barely changed;
+  - lower sampling rate: 0.809 at 25 Hz → 0.767 at 5 Hz.
+- **Size and speed** (fold 0, `outputs/evaluation/benchmark.json`):
+  - full model: 4.7 MB, 0.45 ms per window plus 0.34 ms of feature extraction;
+  - a shallow model is 0.85 MB at 0.606 vs 0.643 accuracy.
+- **Language model:** the 3B model needs 3.2 GB peak RSS and 26.5 s for a cold query.
+
 ## Comparison with Vaizman et al. (2017)
 
 Mean per-class recall over the paper's 5 classes. Each class's recall is pooled over the 5 test folds; the paper's values come from its Fig. 4B/C.

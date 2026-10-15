@@ -120,7 +120,14 @@ Original plan:
 - Ablation: no context → + context → + hierarchy → + HMM → + time-of-day → + cleaning; also logistic regression vs XGBoost, and EF vs LFA vs LFL.
 - Show our confusion matrices next to the paper's Fig. 4B/C.
 
-### 6. Demo upkeep (≈1 h)
+### 6. Demo upkeep (≈1 h) — DONE
+
+- Demo kept with Viterbi decoding.
+- Removed the challenge QA outputs (`qa_cv.json`, `explanation_rubric.json`, `demo_answers.txt`) and their figures (fig1, fig3, fig6). `evaluate.py` and `rubric.py` stay as demo tooling.
+- Re-ran robustness and benchmark on the 6-class model.
+- Figures 2, 4 and 5 now plot recognition accuracy, not QA accuracy.
+
+Original plan:
 - Drop the Task 1–4 QA scores from reported results.
 - Keep `evaluate.py` and `rubric.py` in the code, but don't use them for headline numbers.
 - Make the dashboard, QA pipeline and language model work with 6 classes, then smoke-test end to end.
