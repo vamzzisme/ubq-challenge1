@@ -100,6 +100,15 @@ def test_context_is_finite_everywhere() -> None:
     assert np.isfinite(out).all(), "context produced non-finite values"
 
 
+def test_time_of_day_uses_san_diego_hours() -> None:
+    """Each hour lights exactly two of the paper's eight overlapping 6-hour bins."""
+    # 2015-10-05 21:06 UTC is 14:06 in San Diego (PDT): bins 09-15 and 12-18.
+    bins = context.time_of_day(np.array([1444079161]))
+    assert bins.tolist() == [[0, 0, 0, 1, 1, 0, 0, 0]]
+    hourly = context.time_of_day(1444079161 + 3600 * np.arange(24))
+    assert (hourly.sum(axis=1) == 2).all()
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

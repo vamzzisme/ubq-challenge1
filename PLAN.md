@@ -58,7 +58,18 @@ Per-class F1 with context: lying 0.775, sitting 0.712, bicycling 0.621, walking 
 - Update `config.py`, `recognise.py`, `answer.py`, `dashboard.py`, `slm_worker.py` and `tools/parse_strategies.py`.
 - Retrain and record the new 6-class baseline.
 
-### 2. Time-of-day features (≈1 h)
+### 2. Time-of-day features (≈1 h) — DONE
+
+8 bins appended to the context features (103 → 111). With context, per window:
+
+| | Accuracy | Balanced acc. | Macro-F1 |
+|---|---|---|---|
+| Before (Phase 1) | 0.665 ± 0.038 | 0.557 ± 0.075 | 0.551 ± 0.074 |
+| + time of day | 0.695 ± 0.038 | 0.564 ± 0.067 | 0.561 ± 0.070 |
+| + HMM (Viterbi) | 0.715 ± 0.038 | not computed | 0.558 ± 0.074 |
+
+Lying 0.775 → 0.831 F1, sitting 0.712 → 0.734, standing 0.307 → 0.334; running 0.395 → 0.360 (±0.33 across folds, so within noise). HMM now raises accuracy but no longer raises macro-F1.
+
 - Compute from the cached `epoch_ts`; no download needed.
 - Use the paper's encoding: San Diego local hour, 8 half-overlapping bins (00–06, 03–09, 06–12, 09–15, 12–18, 15–21, 18–24, 21–03).
 - Target: the lying vs sitting confusion.

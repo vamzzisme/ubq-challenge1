@@ -282,9 +282,9 @@ def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) ->
         )
 
     # The honest single-window number. Context needs neighbours; a lone window
-    # has none, so this is what Task 1 actually gets: 0.463 against 0.602.
-    X_test_plain, y_test_plain, _, _ = load_users(split["test"], with_context=False)
-    isolated = context.augment_isolated(X_test_plain)
+    # has none.
+    X_test_plain, y_test_plain, ts_test_plain, _ = load_users(split["test"], with_context=False)
+    isolated = context.augment_isolated(X_test_plain, ts_test_plain)
     predicted = trained["context_aware"].predict(isolated)
     metrics["context_aware_on_isolated_windows"] = float((predicted == y_test_plain).mean())
     print(

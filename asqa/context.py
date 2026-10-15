@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import numpy as np
 
 from asqa import config, features as feat
@@ -28,6 +31,11 @@ CONTEXT_CHANNELS: tuple[str, ...] = (
     "spectral_entropy",
 )
 
+# Time of day, encoded as in Vaizman et al. (2017): eight 6-hour ranges starting
+# every 3 hours, so each hour switches on exactly two of them. Local time,
+# because "night" is a property of the wall clock, not of UTC.
+TIME_OF_DAY_STARTS: tuple[int, ...] = (0, 3, 6, 9, 12, 15, 18, 21)
+
 
 def feature_names() -> list[str]:
     """Names of the context columns, in the order `augment` emits them."""
@@ -45,10 +53,19 @@ def feature_names() -> list[str]:
             ]
         )
     names.extend(["ctx_gap_prev_s", "ctx_gap_next_s", "ctx_neighbours_within_30min"])
+    names.extend(f"tod_{start:02d}_{(start + 6) % 24:02d}" for start in TIME_OF_DAY_STARTS)
     return names
 
 
 N_CONTEXT_FEATURES = len(feature_names())
+
+
+def time_of_day(epoch_ts: np.ndarray) -> np.ndarray:
+    """(N, 8) binary time-of-day bins from Unix timestamps."""
+    zone = ZoneInfo(config.LOCAL_TIMEZONE)
+    hours = np.array([datetime.fromtimestamp(int(t), zone).hour for t in epoch_ts])
+    starts = np.asarray(TIME_OF_DAY_STARTS)
+    return (((hours[:, None] - starts[None, :]) % 24) < 6).astype(np.float64)
 
 
 def _rolling(values: np.ndarray, times: np.ndarray, radius: int) -> tuple[np.ndarray, np.ndarray]:
@@ -83,7 +100,7 @@ def _rolling(values: np.ndarray, times: np.ndarray, radius: int) -> tuple[np.nda
 def augment(X: np.ndarray, epoch_ts: np.ndarray) -> np.ndarray:
     """Append temporal-context columns to one recording's feature matrix.
 
-    40 base features in, 103 out.
+    40 base features in, 111 out.
     """
     if len(X) != len(epoch_ts):
         raise ValueError(f"X has {len(X)} rows but epoch_ts has {len(epoch_ts)}")
@@ -129,6 +146,7 @@ def augment(X: np.ndarray, epoch_ts: np.ndarray) -> np.ndarray:
         [int(np.sum(np.abs(times - times[i]) <= 1800.0) - 1) for i in range(n)], dtype=np.float64
     )
     columns.extend([gap_before, gap_after, within])
+    columns.extend(time_of_day(times).T)
 
     # Restore the caller's original row order.
     augmented = np.column_stack([ordered] + columns)
@@ -137,13 +155,14 @@ def augment(X: np.ndarray, epoch_ts: np.ndarray) -> np.ndarray:
     return result
 
 
-def augment_isolated(X: np.ndarray) -> np.ndarray:
+def augment_isolated(X: np.ndarray, epoch_ts: np.ndarray | None = None) -> np.ndarray:
     """Context columns for windows with no neighbours
 
     Each window is augmented alone, so every context column degenerates to the
-    window's own value. 
+    window's own value. Its timestamp still sets the time-of-day bins.
     """
-    return np.vstack([augment(X[i : i + 1], np.zeros(1)) for i in range(len(X))])
+    times = np.zeros(len(X)) if epoch_ts is None else epoch_ts
+    return np.vstack([augment(X[i : i + 1], times[i : i + 1]) for i in range(len(X))])
 
 
 FEATURE_NAMES_FULL = tuple(feat.FEATURE_NAMES) + tuple(feature_names())

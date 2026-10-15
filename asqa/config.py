@@ -45,6 +45,9 @@ ACTIVITIES: tuple[str, ...] = (
 )
 ACTIVITY_INDEX = {name: index for index, name in enumerate(ACTIVITIES)}
 
+# ExtraSensory was recorded in San Diego; time-of-day features use its local clock.
+LOCAL_TIMEZONE = "America/Los_Angeles"
+
 DISPLAY_NAMES = {
     "lying_down": "lying down",
     "sitting": "sitting",
