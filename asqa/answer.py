@@ -210,6 +210,15 @@ def find_time(question: str) -> float | None:
     return None
 
 
+# "How many activities / which activities": the set of distinct classes, not bouts
+# of one. Checked before count so "how many different activities" lands here.
+VARIETY_PHRASES = (
+    "how many activities", "how many different", "how many distinct", "how many kinds",
+    "how many types", "which activities", "what activities", "list the activities",
+    "list all activities", "number of activities", "number of different",
+)
+
+
 def classify(question: str) -> str:
     """Which operation the question is asking for."""
     lower = question.lower().strip()
@@ -229,6 +238,8 @@ def classify(question: str) -> str:
         )
     ):
         return "duration"
+    if any(p in lower for p in VARIETY_PHRASES):
+        return "variety"
     if any(p in lower for p in ("how many times", "how often", "how many bouts", "number of times", "how many separate")):
         return "count"
     if any(p in lower for p in ("more time", "longer", "compare", "or ", "most time", "which activity")):
@@ -540,6 +551,32 @@ def answer_temporal(question: str, timeline: Timeline, intent: Intent | None = N
     )
 
 
+def answer_variety(question: str, timeline: Timeline, intent: Intent | None = None) -> Answer:
+    """How many distinct activities occurred, citing the longest bout of each."""
+    intent = intent or parse_question(question)
+    totals: dict[str, float] = {}
+    cited: list[Interval] = []
+    for activity in config.ACTIVITIES:
+        intervals = _select(timeline, [activity], intent.window)
+        if intervals:
+            totals[activity] = sum(i.duration_s for i in intervals)
+            cited.append(max(intervals, key=lambda i: i.duration_s))
+    note = _window_note(intent.window, timeline)
+    if not totals:
+        return _none(f"No activity was detected{note}.", "variety")
+    ranked = sorted(totals, key=lambda a: totals[a], reverse=True)
+    breakdown = ", ".join(f"{_label(a)} {totals[a] / 60:.0f} min" for a in ranked)
+    cited.sort(key=lambda i: i.start_s)
+    return _from(
+        cited,
+        str(len(ranked)),
+        ", ".join(_label(a) for a in ranked),
+        f"{len(ranked)} distinct activit{'ies' if len(ranked) != 1 else 'y'} were detected{note}: "
+        f"{breakdown}. The longest bout of each is cited.",
+        "variety",
+    )
+
+
 HANDLERS = {
     "identification": answer_identification,
     "verification": answer_verification,
@@ -547,6 +584,7 @@ HANDLERS = {
     "count": answer_count,
     "comparison": answer_comparison,
     "temporal": answer_temporal,
+    "variety": answer_variety,
 }
 
 
