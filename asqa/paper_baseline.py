@@ -49,16 +49,20 @@ C_GRID = (0.001, 0.01, 0.1, 1.0, 10.0, 100.0)
 SENSOR_SETS = {"phone_acc_gyro": ("Acc", "Gyro"), "all_six": tuple(SENSORS)}
 
 
+def paper_features(csv_path, epoch_ts: np.ndarray) -> dict[str, np.ndarray]:
+    """The published per-sensor features for the given windows."""
+    frame = pd.read_csv(csv_path).set_index("timestamp")
+    rows = frame.loc[epoch_ts]
+    return {
+        sensor: rows[[c for c in frame.columns if c.startswith(prefixes)]].to_numpy(dtype=np.float64)
+        for sensor, prefixes in SENSORS.items()
+    }
+
+
 def load_user(user_id: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     """Paper features for exactly the windows our pipeline keeps, plus our labels."""
-    frame = pd.read_csv(config.DATA_DIR / f"{user_id}{config.LABEL_SUFFIX}").set_index("timestamp")
     _, labels, epoch_ts = build_features(user_id)
-    rows = frame.loc[epoch_ts]
-    blocks = {}
-    for sensor, prefixes in SENSORS.items():
-        columns = [c for c in frame.columns if c.startswith(prefixes)]
-        blocks[sensor] = rows[columns].to_numpy(dtype=np.float64)
-    return blocks, labels
+    return paper_features(config.DATA_DIR / f"{user_id}{config.LABEL_SUFFIX}", epoch_ts), labels
 
 
 def load_users(user_ids: list[str]) -> tuple[dict[str, np.ndarray], np.ndarray]:
@@ -102,7 +106,17 @@ def run_fold(fold_index: int, folds: dict) -> dict:
     split = folds["splits"][str(fold_index)]
     train_blocks, y_train = load_users(split["train"] + split["validation"])
     test_blocks, y_test = load_users(split["test"])
+    probabilities = fit_and_predict(train_blocks, y_train, test_blocks, tag=f"fold {fold_index}")
     classes = list(config.ACTIVITIES)
+    return {"fold": fold_index, "results": {name: score(p, y_test, classes) for name, p in probabilities.items()}}
+
+
+def fit_and_predict(
+    train_blocks: dict[str, np.ndarray], y_train: np.ndarray, test_blocks: dict[str, np.ndarray], tag: str = ""
+) -> dict[str, np.ndarray]:
+    """Every single-sensor and fused system's (N_test, 6) label probabilities."""
+    classes = list(config.ACTIVITIES)
+    n_test = len(next(iter(test_blocks.values())))
 
     present_train = {s: ~np.isnan(train_blocks[s]).all(axis=1) for s in SENSORS}
     present_test = {s: ~np.isnan(test_blocks[s]).all(axis=1) for s in SENSORS}
@@ -118,7 +132,7 @@ def run_fold(fold_index: int, folds: dict) -> dict:
         p_train[rows] = p_rows
         p_test[~present_test[sensor]] = 0.5
         single[sensor] = (p_train, p_test)
-        print(f"    fold {fold_index}: {sensor} done", flush=True)
+        print(f"    {tag}: {sensor} done", flush=True)
 
     probabilities: dict[str, np.ndarray] = {s: single[s][1] for s in SENSORS}
     for set_name, sensors in SENSOR_SETS.items():
@@ -130,14 +144,13 @@ def run_fold(fold_index: int, folds: dict) -> dict:
         weights = np.stack([present_test[s] for s in sensors]).astype(float)[:, :, None]
         probabilities[f"LFA_{set_name}"] = (stacked * weights).sum(0) / np.maximum(weights.sum(0), 1)
 
-        lfl = np.zeros((len(y_test), len(classes)))
+        lfl = np.zeros((n_test, len(classes)))
         for k, c in enumerate(classes):
             inputs_train = np.column_stack([single[s][0][:, k] for s in sensors])
             inputs_test = np.column_stack([single[s][1][:, k] for s in sensors])
             lfl[:, k] = _logreg(1.0).fit(inputs_train, (y_train == c).astype(int)).predict_proba(inputs_test)[:, 1]
         probabilities[f"LFL_{set_name}"] = lfl
-
-    return {"fold": fold_index, "results": {name: score(p, y_test, classes) for name, p in probabilities.items()}}
+    return probabilities
 
 
 def score(probabilities: np.ndarray, y_true: np.ndarray, classes: list[str]) -> dict:

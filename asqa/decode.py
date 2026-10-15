@@ -181,7 +181,7 @@ def decode_labels(
 
 def main() -> int:
     import joblib
-    from sklearn.metrics import f1_score
+    from sklearn.metrics import balanced_accuracy_score, f1_score
 
     from asqa.recognise import build_context_features, build_features
     from asqa.splits import load_folds
@@ -233,6 +233,7 @@ def main() -> int:
             for method in ("window", "viterbi", "posterior"):
                 predicted = joined[method]
                 entry[f"accuracy_{method}"] = float((predicted == truth).mean())
+                entry[f"balanced_accuracy_{method}"] = float(balanced_accuracy_score(truth, predicted))
                 entry[f"macro_f1_{method}"] = float(
                     f1_score(truth, predicted, labels=present, average="macro", zero_division=0)
                 )
@@ -257,15 +258,17 @@ def main() -> int:
 
     if len(results) > 1:
         print(f"\n{'=' * 78}")
-        print(f"{'':<16}{'':<12}{'accuracy':>20}{'macro-F1':>20}")
+        print(f"{'':<16}{'':<12}{'accuracy':>20}{'balanced acc':>20}{'macro-F1':>20}")
         best = (None, None, -1.0)
         for variant in ("context_free", "context_aware"):
             for method in ("window", "viterbi", "posterior"):
                 accuracies = [r[variant][f"accuracy_{method}"] for r in results]
+                balanced = [r[variant][f"balanced_accuracy_{method}"] for r in results]
                 f1s = [r[variant][f"macro_f1_{method}"] for r in results]
                 mean_accuracy, mean_f1 = float(np.mean(accuracies)), float(np.mean(f1s))
                 print(
                     f"{variant:<16}{method:<12}{mean_accuracy:>13.3f} +/- {np.std(accuracies):.3f}"
+                    f"{np.mean(balanced):>13.3f} +/- {np.std(balanced):.3f}"
                     f"{mean_f1:>13.3f} +/- {np.std(f1s):.3f}"
                 )
                 if mean_f1 > best[2]:

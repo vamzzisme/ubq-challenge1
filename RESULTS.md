@@ -112,6 +112,73 @@ Nearly every cell is within 0.02 (bicycling up to 0.04), even though we use 35 o
 - The reason is that the paper trains a separate yes/no detector for each label, each with its own 0.5 threshold. That design is tuned for this metric, and a rare label can fire even when another label is more likely.
 - Our model picks one winning class per window, so a rare class only scores when it beats every other class. That is the right behaviour for a 6-way decision, and it's why ours wins on the multiclass metrics.
 
+## Phase 5: evaluation
+
+### Held-out users (`python -m asqa.holdout`, `outputs/evaluation/holdout.json`)
+
+- **Test set:** 5 users that no fold ever trained or tuned on, 31,557 labelled windows: lying 12,236, sitting 13,239, standing 2,837, walking 2,680, running 58, bicycling 160.
+- **How each side is trained:** each fold's saved model is scored. The paper's method is trained on that same fold's train and validation users.
+- **Values:** mean ± std over the 5 fold models, raw labels.
+
+| System | Accuracy | Balanced acc. | Macro-F1 |
+|---|---|---|---|
+| Paper EF, Acc+Gyro | 0.515 ± 0.027 | 0.411 ± 0.017 | 0.328 ± 0.008 |
+| Paper LFA, Acc+Gyro | 0.571 ± 0.006 | 0.428 ± 0.005 | 0.349 ± 0.005 |
+| Paper LFL, Acc+Gyro | 0.533 ± 0.024 | 0.384 ± 0.022 | 0.308 ± 0.011 |
+| Paper EF, all 6 | 0.633 ± 0.016 | 0.510 ± 0.027 | 0.388 ± 0.011 |
+| Paper LFA, all 6 | 0.650 ± 0.012 | 0.491 ± 0.014 | 0.409 ± 0.005 |
+| Paper LFL, all 6 | 0.624 ± 0.018 | 0.508 ± 0.022 | 0.384 ± 0.013 |
+| **Ours, per window** | 0.713 ± 0.007 | 0.515 ± 0.010 | 0.478 ± 0.018 |
+| **Ours + HMM, Viterbi** | **0.741 ± 0.006** | 0.518 ± 0.010 | 0.496 ± 0.017 |
+| **Ours + HMM, posterior** | 0.740 ± 0.006 | **0.519 ± 0.011** | **0.496 ± 0.017** |
+
+- The held-out users confirm the cross-validation result: ours beats the paper's phone-only method by +0.17 accuracy and +0.15 macro-F1, and its 6-sensor method by +0.09 and +0.09.
+- Balanced accuracy is closer to the 6-sensor paper system (0.519 vs 0.510). There are only 58 running and 160 bicycling windows, so those two classes are noisy here.
+
+### Ablation (`python -m asqa.ablation`, `outputs/evaluation/ablation_cv.json`)
+
+- **Setup:** 5-fold CV, per window, raw test labels. Each row changes one thing from the deployed model.
+- **The last column** is the deployed model's score minus the variant's, as mean macro-F1 difference, with the number of folds where the deployed model was better.
+
+| Variant | Accuracy | Balanced acc. | Macro-F1 | Deployed better by (F1) |
+|---|---|---|---|---|
+| **Deployed:** hierarchical XGBoost, EF, context, time of day, cleaning | 0.696 ± 0.037 | 0.561 ± 0.071 | 0.566 ± 0.076 | — |
+| No context, no time of day | 0.528 ± 0.038 | 0.461 ± 0.058 | 0.433 ± 0.058 | +0.133 (5/5) |
+| Logistic regression instead of XGBoost | 0.639 ± 0.044 | 0.556 ± 0.064 | 0.473 ± 0.034 | +0.093 (5/5) |
+| Late fusion, learned (LFL) | 0.637 ± 0.059 | 0.481 ± 0.078 | 0.459 ± 0.078 | +0.107 (5/5) |
+| Gyroscope only | 0.640 ± 0.048 | 0.496 ± 0.056 | 0.481 ± 0.058 | +0.085 (5/5) |
+| No time of day | 0.665 ± 0.042 | 0.549 ± 0.077 | 0.546 ± 0.078 | +0.020 (5/5) |
+| Late fusion, average (LFA) | 0.701 ± 0.033 | 0.541 ± 0.054 | 0.547 ± 0.052 | +0.019 (2/5) |
+| Accelerometer only | 0.697 ± 0.032 | 0.537 ± 0.045 | 0.553 ± 0.045 | +0.014 (2/5) |
+| Flat XGBoost (no hierarchy) | 0.708 ± 0.035 | 0.541 ± 0.054 | 0.555 ± 0.058 | +0.011 (2/5) |
+| No label cleaning | 0.695 ± 0.038 | 0.564 ± 0.067 | 0.561 ± 0.070 | +0.005 (4/5) |
+
+**Consistent in every fold:**
+- temporal context, the largest gain;
+- XGBoost over logistic regression;
+- early fusion over learned late fusion and over the gyroscope alone;
+- time of day.
+
+**Not consistent, within fold-to-fold noise:**
+- the hierarchy vs flat XGBoost (flat has higher accuracy, the hierarchy higher balanced accuracy and macro-F1);
+- early fusion vs the accelerometer alone or average late fusion;
+- label cleaning.
+
+On 6 classes, the gyroscope adds little on top of the accelerometer.
+
+### Decoding (`python -m asqa.decode --cv`)
+
+| Context model + | Accuracy | Balanced acc. | Macro-F1 |
+|---|---|---|---|
+| No decoding (per window) | 0.696 ± 0.037 | 0.561 ± 0.071 | 0.566 ± 0.076 |
+| HMM, Viterbi (current demo) | **0.718 ± 0.037** | 0.555 ± 0.079 | 0.564 ± 0.078 |
+| HMM, posterior | 0.716 ± 0.037 | **0.569 ± 0.077** | **0.583 ± 0.078** |
+
+- **Posterior vs no decoding:** posterior improves every metric over per-window prediction, with macro-F1 better in 5 of 5 folds.
+- **Viterbi vs no decoding:** Viterbi raises accuracy only, and its balanced accuracy and macro-F1 are slightly lower.
+- **Posterior vs Viterbi:** posterior beats Viterbi on macro-F1 by +0.020 (4 of 5 folds), with accuracy −0.002.
+- **On the held-out users** the two are tied.
+
 ## Comparison with Vaizman et al. (2017)
 
 Mean per-class recall over the paper's 5 classes. Each class's recall is pooled over the 5 test folds; the paper's values come from its Fig. 4B/C.

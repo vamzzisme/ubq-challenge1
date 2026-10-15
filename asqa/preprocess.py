@@ -102,11 +102,11 @@ def resample_to_grid(
     return window, diagnostics
 
 
-def load_labels(user_id: str) -> dict[int, str]:
+def load_labels(user_id: str, data_dir: Path = config.DATA_DIR) -> dict[int, str]:
     """Map ``epoch timestamp -> coarse activity`` for one user."""
     # dataset is multi-label. rows with two or more of our classes active
     # are skipped, so every training label is unique
-    path = config.DATA_DIR / f"{user_id}{config.LABEL_SUFFIX}"
+    path = data_dir / f"{user_id}{config.LABEL_SUFFIX}"
     labels: dict[int, str] = {}
     with path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)

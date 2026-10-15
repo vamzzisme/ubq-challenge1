@@ -106,7 +106,14 @@ Original plan:
 - Same 35 users, 5 folds and 6 classes as ours.
 - Optional: add their watch-accelerometer, audio and phone-state features to show what extra sensors give.
 
-### 5. Evaluation (≈2.5 h)
+### 5. Evaluation (≈2.5 h) — DONE
+
+- Held-out users: `asqa/holdout.py`. Ablation: `asqa/ablation.py`. Balanced accuracy added to `decode.py`.
+- Open decision: whether the demo should switch from Viterbi to posterior decoding.
+- The side-by-side confusion-matrix figure moves to Phase 7.
+- See RESULTS.md.
+
+Original plan:
 - Metrics: accuracy, balanced accuracy, mean per-class recall, macro-F1 and per-class F1, as mean ± std over the 5 folds.
 - Score the paper's method and ours on identical test windows.
 - Final check on the 5 held-out users, which are never used for training or tuning.
