@@ -132,7 +132,13 @@ Original plan:
 - Keep `evaluate.py` and `rubric.py` in the code, but don't use them for headline numbers.
 - Make the dashboard, QA pipeline and language model work with 6 classes, then smoke-test end to end.
 
-### 7. Write-up (≈2.5 h)
+### 7. Write-up (≈2.5 h) — DONE
+
+- Report: `report/btp_report.tex` (figures read from `outputs/figures/`).
+- New figures: fig6 (paper vs ours confusion), fig7 (per-class recall), fig8 (ablation).
+- README and ARCHITECTURE rewritten for the comparison.
+
+Original plan:
 - Rewrite README and ARCHITECTURE as a paper-vs-ours comparison: tables, figures and an explicit list of differences:
   - we predict one label from 6 classes; the paper runs a separate yes/no model per label;
   - the paper's 87% accuracy is an average over yes/no labels, so it is not comparable to our 6-class accuracy;

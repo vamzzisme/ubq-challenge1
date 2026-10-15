@@ -247,6 +247,126 @@ def figure_robustness(output_dir: Path) -> None:
     print("  fig5_robustness.png")
 
 
+def _pooled(matrices: list) -> np.ndarray:
+    return sum(np.asarray(m, dtype=float) for m in matrices)
+
+
+def _row_normalise(matrix: np.ndarray) -> np.ndarray:
+    sums = matrix.sum(axis=1, keepdims=True)
+    return np.divide(matrix, sums, where=sums > 0, out=np.zeros_like(matrix))
+
+
+def _comparison_systems() -> list[tuple[str, np.ndarray]] | None:
+    """Pooled confusion matrices: the paper's method (both sensor sets) and ours."""
+    paper = _load("paper_baseline_cv.json")
+    ours = _load("recognition_cv.json")
+    if paper is None or ours is None:
+        return None
+    return [
+        ("Vaizman et al., phone Acc+Gyro (LFA)",
+         _pooled([f["results"]["LFA_phone_acc_gyro"]["confusion_matrix"] for f in paper])),
+        ("Vaizman et al., all 6 sensors (LFA)",
+         _pooled([f["results"]["LFA_all_six"]["confusion_matrix"] for f in paper])),
+        ("Ours, phone Acc+Gyro",
+         _pooled([f["context_aware"]["confusion_matrix"] for f in ours])),
+    ]
+
+
+def figure_paper_vs_ours_confusion(output_dir: Path) -> None:
+    systems = _comparison_systems()
+    if systems is None:
+        return
+    pretty = [config.DISPLAY_NAMES[a] for a in config.ACTIVITIES]
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5.6))
+    for ax, (title, matrix) in zip(axes, systems):
+        normalised = _row_normalise(matrix)
+        image = ax.imshow(normalised, cmap=BLUE_RAMP, vmin=0, vmax=1)
+        n = len(pretty)
+        for i in range(n):
+            for j in range(n):
+                value = normalised[i, j]
+                if value >= 0.005:
+                    ax.text(j, i, f"{value:.2f}", ha="center", va="center", fontsize=7.5,
+                            color="#ffffff" if value > 0.55 else INK,
+                            weight="bold" if i == j else "normal")
+        ax.set_xticks(range(n), pretty, rotation=40, ha="right")
+        ax.set_yticks(range(n), pretty if ax is axes[0] else [""] * n)
+        ax.set_xlabel("Predicted")
+        macro_recall = float(np.mean(np.diag(normalised)))
+        ax.set_title(f"{title}\nmean per-class recall {macro_recall:.2f}", fontsize=10)
+    axes[0].set_ylabel("True")
+    fig.colorbar(image, ax=list(axes), fraction=0.015, pad=0.02, label="Share of true class")
+    fig.text(0.45, -0.06,
+             "Row-normalised, pooled over the same 5 user-disjoint folds and the same 165,787 windows. "
+             "The paper's method is reproduced on its published features; a window's class is the label with the "
+             "highest probability. Ours: hierarchical XGBoost with temporal context and time of day, before HMM decoding.",
+             ha="center", fontsize=7.5, color=INK_SECONDARY)
+    fig.savefig(output_dir / "fig6_paper_vs_ours_confusion.png", bbox_inches="tight")
+    plt.close(fig)
+    print("  fig6_paper_vs_ours_confusion.png")
+
+
+def figure_per_class_recall(output_dir: Path) -> None:
+    systems = _comparison_systems()
+    if systems is None:
+        return
+    labels = list(config.ACTIVITIES)
+    pretty = [config.DISPLAY_NAMES[a] for a in labels] + ["mean"]
+    colours = [SLOT["blue"], SLOT["orange"], SLOT["aqua"]]
+    x = np.arange(len(pretty))
+    width = 0.26
+    fig, ax = plt.subplots(figsize=(12, 4.6))
+    for k, ((name, matrix), colour) in enumerate(zip(systems, colours)):
+        recall = np.diag(_row_normalise(matrix))
+        values = np.r_[recall, recall.mean()]
+        bars = ax.bar(x + (k - 1) * (width + 0.01), values, width, color=colour, label=name, zorder=3)
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.012, f"{bar.get_height():.2f}",
+                    ha="center", va="bottom", fontsize=7, color=INK_SECONDARY)
+    ax.axvline(len(labels) - 0.5, color=GRID, linewidth=1)
+    ax.set_xticks(x, pretty)
+    ax.set_ylim(0, 1.0)
+    ax.set_ylabel("Recall (share of true class found)")
+    ax.set_title("Per-class recall on identical test windows")
+    ax.yaxis.grid(True, zorder=0)
+    ax.set_axisbelow(True)
+    ax.legend(frameon=False, fontsize=8.5, loc="upper right")
+    fig.tight_layout()
+    fig.savefig(output_dir / "fig7_per_class_recall.png", bbox_inches="tight")
+    plt.close(fig)
+    print("  fig7_per_class_recall.png")
+
+
+def figure_ablation(output_dir: Path) -> None:
+    data = _load("ablation_cv.json")
+    if data is None:
+        return
+    summary = data["summary"]
+    f1_index = data["metrics"].index("macro_f1")
+    deployed = "deployed: hierarchical XGBoost"
+    names = sorted(summary, key=lambda n: summary[n]["mean"][f1_index])
+    values = [summary[n]["mean"][f1_index] for n in names]
+    errors = [summary[n]["std"][f1_index] for n in names]
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+    colours = [SLOT["blue"] if n == deployed else "#9ec5f4" for n in names]
+    bars = ax.barh(range(len(names)), values, xerr=errors, color=colours, height=0.62, zorder=3,
+                   error_kw={"ecolor": INK_SECONDARY, "elinewidth": 1, "capsize": 2})
+    for bar, value in zip(bars, values):
+        ax.text(0.012, bar.get_y() + bar.get_height() / 2, f"{value:.3f}", va="center",
+                fontsize=8, color=INK, zorder=4)
+    ax.axvline(summary[deployed]["mean"][f1_index], color=INK_SECONDARY, linestyle=":", linewidth=1.2, zorder=4)
+    ax.set_yticks(range(len(names)), ["deployed model" if n == deployed else n for n in names])
+    ax.set_xlim(0, 0.7)
+    ax.set_xlabel("Macro-F1 (mean over 5 folds, bars show one std)")
+    ax.set_title("Ablation: one change at a time from the deployed per-window model")
+    ax.xaxis.grid(True, zorder=0)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    fig.savefig(output_dir / "fig8_ablation.png", bbox_inches="tight")
+    plt.close(fig)
+    print("  fig8_ablation.png")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=config.FIGURE_DIR)
@@ -255,7 +375,7 @@ def main() -> int:
 
     _style()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    wanted = set(args.only) if args.only else {2, 4, 5}
+    wanted = set(args.only) if args.only else {2, 4, 5, 6, 7, 8}
     print(f"Writing figures to {args.output_dir}/")
 
     if 2 in wanted:
@@ -264,6 +384,12 @@ def main() -> int:
         figure_accuracy_vs_overhead(args.output_dir)
     if 5 in wanted:
         figure_robustness(args.output_dir)
+    if 6 in wanted:
+        figure_paper_vs_ours_confusion(args.output_dir)
+    if 7 in wanted:
+        figure_per_class_recall(args.output_dir)
+    if 8 in wanted:
+        figure_ablation(args.output_dir)
     print("Done.")
     return 0
 

@@ -1,7 +1,11 @@
-# Ask the Sensors - Architecture
+# Architecture
 
-How a raw wearable recording becomes a natural-language answer that cites the
-signal it came from.
+How a raw phone recording becomes an activity label per window, how that is
+compared with Vaizman et al. (2017), and how the same timeline drives the
+question-answering demo.
+
+The comparison modules (`paper_baseline.py`, `holdout.py`, `ablation.py`) sit
+beside the pipeline and reuse its folds, windows and labels; see §1 and §6.
 
 The system is four layers. Each one takes the layer below as its only input and
 adds exactly one kind of structure. Nothing skips a layer, and nothing invents a
@@ -14,8 +18,9 @@ fact that the layer below did not measure.
         │                    → 15 s windows of 6 channels
         ▼
    L2a  │  features.py       40 interpretable features per window
-   L2b  │  context.py        + 63 temporal-context features = 103
-   L2   │  recognise.py      hierarchical XGBoost → P(activity | window)
+   L2b  │  context.py        + 63 temporal-context + 8 time-of-day = 111
+   L2   │  recognise.py      label cleaning (training only),
+        │                    hierarchical XGBoost → P(activity | window), 6 classes
    L2c  │  decode.py         time-aware HMM → one label per window
         ▼
    L3   │  timeline.py       windows → bouts → Timeline (the evidence store)
@@ -56,7 +61,10 @@ preprocessing cache. Flags: `--questions <file>`, `--json`, `--fold N`,
 | `python -m asqa.splits` | `outputs/folds_w15.json` - subject-disjoint 5-fold split |
 | `python -m asqa.recognise` | `outputs/models/recogniser_fold{0..4}.joblib` |
 | `python -m asqa.decode` | `outputs/models/transitions_fold{0..4}.npy` |
-| `python -m asqa.evaluate` | `outputs/evaluation/*.json` |
+| `python -m asqa.paper_baseline` | `paper_baseline_cv.json` - the reference method on our folds |
+| `python -m asqa.holdout` | `holdout.json` - both methods on the 5 held-out users |
+| `python -m asqa.ablation` | `ablation_cv.json` - one change at a time |
+| `python -m asqa.evaluate` | `qa_cv.json` - demo QA scoring (not reported) |
 | `python -m asqa.benchmark` | latency, memory, model size |
 | `python -m asqa.robustness` | noise and dropout degradation curves |
 | `python -m asqa.figures` | `outputs/figures/*.png` |
@@ -73,7 +81,7 @@ preprocessing cache. Flags: `--questions <file>`, `--json`, `--fold N`,
 |---|---|
 | `tools/parse_strategies.py` | Reproduces the 0.5B-vs-3B parsing comparison |
 | `tools/which_fold.py` | Reports which fold holds a given user out |
-| `python -m tests.test_*` | 55 tests across 5 files, no pytest dependency |
+| `python -m tests.test_*` | 56 tests across 5 files, no pytest dependency |
 
 ---
 
@@ -144,41 +152,47 @@ the device axis"* instead of *"the classifier said so."*
 
 ### L2b - `context.py`: temporal context (+63 features)
 
-**In:** the ordered feature matrix for a recording. **Out:** 103 features.
+**In:** the ordered feature matrix and timestamps for a recording. **Out:** 111 features.
 
 A single 15-second window is genuinely ambiguous - sitting still and lying still
-look alike. `augment()` adds rolling statistics over neighbouring windows and
-time-of-day encodings.
+look alike. `augment()` adds rolling statistics over neighbouring windows (never
+across gaps over 40 min) and the paper's time-of-day encoding: eight
+half-overlapping 6-hour bins in San Diego local time (`LOCAL_TIMEZONE`).
 
-**This is the single largest accuracy gain in the system: 0.457 → 0.660** window
-accuracy. `augment_isolated()` exists for the honest single-window case, where
-no neighbours are available; it scores 0.463, and the gap between those two
-numbers *is* the value of context.
+Context is **the single largest gain in the system** (+0.133 macro-F1 in the
+ablation, 5/5 folds); time of day adds +0.020 (5/5). `augment_isolated()` covers
+the single-window case, where no neighbours exist; it scores 0.564 accuracy
+against 0.696 with context.
 
 ### L2 - `recognise.py`: hierarchical XGBoost
 
-**In:** 103 features. **Out:** calibrated `P(activity | window)` over 7 classes.
+**In:** 111 features. **Out:** calibrated `P(activity | window)` over 6 classes.
 
-Not one 7-way classifier but **three**, in a hierarchy:
+**Label cleaning first.** ExtraSensory's `FIX_walking` / `FIX_running` already
+carry the paper's rule-based corrections. `clean_mask()` additionally drops
+walking, running and bicycling windows whose body-acceleration energy is at or
+below the 90th percentile of training lying-down windows (≈0.008 g, fitted per
+fold): the phone was not moving with the person. Training and validation only;
+test labels are never touched. `--no-clean` turns it off for ablation.
+
+Not one 6-way classifier but **three**, in a hierarchy:
 
 ```
 stage1   binary: static vs dynamic          (the easy, high-accuracy split)
-  ├─ stage2a  lying / sitting / standing_in_place
-  └─ stage2b  standing_and_moving / walking / running / bicycling
+  ├─ stage2a  lying_down / sitting / standing
+  └─ stage2b  walking / running / bicycling
 ```
 
 `predict_proba()` composes them as `P(leaf) = P(branch) × P(leaf | branch)`,
-renormalises, then applies a fitted **temperature** (≈1.14) so the probabilities
-are calibrated - which matters because L2c consumes them as likelihoods, not as
-argmax decisions.
+renormalises, then applies a **temperature** fitted on validation users
+(0.93-1.33 across folds) so the probabilities are calibrated - which matters
+because L2c consumes them as likelihoods, not as argmax decisions.
 
-The static/dynamic boundary is the most reliable thing in accelerometry, so it
-is decided first and never revisited. `StandingSplit` handles the
-`standing_in_place` / `standing_and_moving` boundary with a fitted energy
-threshold rather than asking the tree to learn it.
+`evaluate()` reports accuracy, balanced accuracy (mean per-class recall) and
+macro-F1.
 
-**Classes:** `lying_down`, `sitting`, `standing_in_place`,
-`standing_and_moving`, `walking`, `running`, `bicycling`
+**Classes:** `lying_down`, `sitting`, `standing`, `walking`, `running`, `bicycling`
+(all human-annotated; a window is kept only when exactly one is active).
 
 **Key calls:** `train()` → `Recogniser.predict_proba()` → `run_fold()`
 
@@ -198,7 +212,9 @@ actual elapsed time via a generator matrix, rather than assuming a fixed step.
 per-window posteriors. Viterbi ships, because a coherent sequence is what L3
 needs to form bouts.
 
-**Gain: 0.660 → 0.703** accuracy.
+**Effect** (CV, on top of context): Viterbi +0.023 accuracy, macro-F1 flat;
+posterior +0.020 accuracy and +0.017 macro-F1. Viterbi stays in the demo
+because bouts need one coherent path.
 
 ### L3 - `timeline.py`: the evidence store
 
@@ -286,8 +302,8 @@ run.py:main()
      ├─ load_recording()                             → LoadedRecording
      ├─ preprocess.resample_to_grid()                → (N, 375, 6)
      ├─ features.extract_batch()                     → (N, 40)
-     ├─ context.augment()                            → (N, 103)
-     ├─ Recogniser.predict_proba()                   → (N, 7)
+     ├─ context.augment()                            → (N, 111)
+     ├─ Recogniser.predict_proba()                   → (N, 6)
      ├─ decode.viterbi()                             → labels
      └─ timeline.build_timeline()                    → Timeline
  └─ answer_question(question, timeline, use_slm)     [answer.py]
@@ -321,7 +337,7 @@ makes the system auditable: an answer can be wrong, but it cannot be
 
 Rules (~0.2 ms) handle the great majority. The model is consulted only for
 wording the rules cannot place, and answers directly only when parsing also
-fails. Ordinary questions never load a 10 GB model.
+fails. Ordinary questions never load the 6 GB model.
 
 ### The model parses; it does not judge
 
@@ -383,63 +399,41 @@ manufacture signal, and that signal would then be cited as evidence.
 
 ## 6. Measured results
 
-**Recognition** (5-fold subject-disjoint CV, mean):
+The full log is in `RESULTS.md`; the report is `report/btp_report.tex`.
 
-| Configuration | Window acc | After HMM | Macro F1 |
-|---|---|---|---|
-| context-free | 0.457 | 0.576 | 0.475 |
-| **context-aware** | **0.660** | **0.703** | **0.525** |
-| single isolated window | 0.463 | - | - |
+**Comparison** (5-fold user-disjoint CV, identical windows, raw labels, mean):
 
-Context is worth **+0.20**; HMM decoding a further **+0.04**.
+| System | Sensors | Accuracy | Balanced acc | Macro-F1 |
+|---|---|---|---|---|
+| Paper, LFA | phone Acc+Gyro | 0.526 | 0.401 | 0.366 |
+| Paper, LFA | all 6 | 0.674 | 0.502 | 0.478 |
+| Ours, per window | phone Acc+Gyro | **0.696** | **0.561** | **0.566** |
+| Ours + HMM (Viterbi) | phone Acc+Gyro | **0.718** | 0.555 | 0.564 |
 
-**Cost** (fold 3, 36,087 test windows, laptop CPU, no GPU):
+Held-out users: ours + HMM 0.741 accuracy / 0.496 macro-F1, against 0.650 / 0.409
+for the paper's six-sensor method. On the paper's per-label binary BA the
+six-sensor method still leads (0.776 vs 0.744).
 
-| Metric | Value |
-|---|---|
-| Feature extraction | 0.333 ms/window |
-| Inference | 0.387 ms mean, 0.478 ms p95 |
-| Model size | 9.10 MB (214,421 tree nodes) |
-| Peak RSS | 855 MB |
-| Answer routing (rules) | ~0.16 ms |
+**Reproduction check:** `paper_baseline.py` matches the paper's published
+per-label balanced accuracy within ~0.02.
 
-**Robustness** (fold 3): accuracy 0.778 clean → 0.625 at 1% additive noise →
-0.520 at 20%. Largely **insensitive to sample dropout** (0.775 at 10%), which
-follows from clock-true resampling - dropout is exactly what it was built to
-absorb.
+**Cost** (fold 0, laptop CPU): feature extraction 0.34 ms/window; inference
+0.45 ms median; model 4.7 MB (101,351 tree nodes); process peak RSS 859 MB;
+answer routing by rules ~0.16 ms. Qwen2.5-3B: 3.2 GB peak RSS on MPS, 26.5 s
+per cold query.
 
-**Question answering** - ⚠️ **these numbers are stale.** They were generated at
-01:02 today, *before* the time-window fix, the SLM parser, and the 3B upgrade.
-`duration` and `count` in particular were measured while range qualifiers were
-still being silently dropped, so they understate current behaviour. **Re-run
-`python -m asqa.evaluate` before quoting these.**
-
-| Type | n | Answer acc | Grounded acc |
-|---|---|---|---|
-| verification | 245 | 0.90 | 0.44 |
-| comparison | 34 | 0.88 | 0.50 |
-| identification | 228 | 0.47 | 0.36 |
-| grounding | 194 | 0.33 | 0.23 |
-| duration | 194 | 0.25 † | 0.14 |
-| count | 194 | 0.14 † | 0.07 |
-| open_world | 70 | 0.99 | 0.69 |
-
-† measured before time windows were applied.
-
-*Grounded accuracy* requires the answer to be right **and** to cite the correct
-intervals - always lower than answer accuracy, and the stricter number to trust.
+**Robustness** (2 held-out users, decoded accuracy): 0.809 clean → 0.619 at
+σ = 0.2 g noise; 0.804 with half the samples dropped; 0.767 at 5 Hz.
 
 ---
 
 ## 7. Known limitations
 
-- **QA metrics predate today's fixes.** Re-run `asqa.evaluate` before reporting.
-- **`count` and `duration` are the weakest operations.** Bout segmentation is
-  sensitive to the 180 s merge gap; the reported count depends on that constant.
+- **35 of the paper's 60 users.** Per-fold std is ~0.07; differences under
+  ~0.02 are noise.
+- **`running`** (0.18 recall) and **`standing`** (0.32) remain the weak classes.
+- **`count` and `duration` are the weakest QA operations.** Bout segmentation is
+  sensitive to the 180 s merge gap.
 - **The model stage is best-effort, not reliable.** 9/10 on obscure wording, and
   its failures are visible in the explanation rather than silent.
-- **`running` is rarely detected** in some recordings - the confusion matrix
-  shows near-zero recall for it on fold 0, reflecting genuine class scarcity.
-- **10 GB peak RSS** when the 3B model loads. Set
-  `ASQA_SLM_MODEL=Qwen/Qwen2.5-0.5B-Instruct` where memory is binding, accepting
-  the accuracy drop documented above.
+- **QA scores are no longer reported**; `asqa.evaluate` remains for checking the demo.
