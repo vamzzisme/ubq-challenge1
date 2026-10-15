@@ -24,13 +24,12 @@ operation may ONLY be one of:
   temporal        - when did it start, begin, first happen
 
 activities may ONLY contain these exact words:
-  lying_down, sitting, standing_in_place, standing_and_moving, walking, running, bicycling
+  lying_down, sitting, standing, walking, running, bicycling
 
 group may ONLY be one of these, or null:
   resting   - the question means lying down or sitting
   active    - the question means exertion: tiring, strenuous, exercise, workout
   wheeled   - the question means a bicycle: pedalling, cycling, pushbike
-  standing  - the question means standing
 
 Use group when the question describes a kind of behaviour; use activities when it
 names one directly. Map informal words and typos onto the list: jog and sprint are
@@ -111,12 +110,11 @@ def _extract_json(text: str) -> dict | None:
 CHOICES = [
     ("A", "lying_down", "lying down, in bed, asleep, having a kip or a lie-in"),
     ("B", "sitting", "sitting, seated, sat down, perched"),
-    ("C", "standing_in_place", "standing still in one spot"),
-    ("D", "standing_and_moving", "standing while shuffling or moving about"),
-    ("E", "walking", "walking, strolling, wandering, ambling, hiking, on foot"),
-    ("F", "running", "running, jogging, sprinting, legging it"),
-    ("G", "bicycling", "cycling, bicycling, pedalling, on a bike or pushbike"),
-    ("H", "__none__", "none of these, or the question is not about one activity"),
+    ("C", "standing", "standing, stood, upright on their feet"),
+    ("D", "walking", "walking, strolling, wandering, ambling, hiking, on foot"),
+    ("E", "running", "running, jogging, sprinting, legging it"),
+    ("F", "bicycling", "cycling, bicycling, pedalling, on a bike or pushbike"),
+    ("G", "__none__", "none of these, or the question is not about one activity"),
 ]
 
 CHOOSE_PROMPT = """Which activity is this question about? Reply with one letter only.

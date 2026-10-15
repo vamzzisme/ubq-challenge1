@@ -1,7 +1,7 @@
 # Ask the Sensors
 
 Grounded, explainable activity question answering from wearable accelerometer and
-gyroscope signals. CS60055 Ubiquitous Computing, Hackathon Challenge 1.
+gyroscope signals. B.Tech Project (BTP).
 
 Given a sensor recording and a natural-language question, the system returns a
 structured answer that cites the specific stretch of signal supporting it.

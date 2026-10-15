@@ -24,8 +24,7 @@ UI_PATH = Path(__file__).resolve().parent / "dashboard.html"
 ACTIVITY_COLOURS = {
     "lying_down": "#4a3aa7",
     "sitting": "#2a78d6",
-    "standing_in_place": "#1baf7a",
-    "standing_and_moving": "#eda100",
+    "standing": "#1baf7a",
     "walking": "#eb6834",
     "running": "#e34948",
     "bicycling": "#e87ba4",

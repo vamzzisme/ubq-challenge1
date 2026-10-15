@@ -150,8 +150,7 @@ class Pipeline:
                 split = load_folds()["splits"][str(self.fold)]
                 sequences = []
                 for user_id in split["train"]:
-                    X, coarse, epoch_ts = build_context_features(user_id)
-                    labels, _ = self.context_aware.standing_split.apply(X, coarse)
+                    X, labels, epoch_ts = build_context_features(user_id)
                     sequences.append((epoch_ts, labels))
                 matrix = estimate_transitions(sequences)
                 path.parent.mkdir(parents=True, exist_ok=True)

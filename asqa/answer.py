@@ -13,8 +13,7 @@ from asqa.timeline import Interval, Timeline, cite, evidence_block
 ACTIVITY_PHRASES: dict[str, tuple[str, ...]] = {
     "lying_down": ("lying down", "lie down", "lying", "laying down", "lay down", "lied down"),
     "sitting": ("sitting", "seated", "sit down", "sits", "sat", "sit"),
-    "standing_in_place": ("standing in place", "standing still", "stood still", "standing in one place"),
-    "standing_and_moving": ("standing and moving", "moving about", "shuffling", "standing while moving"),
+    "standing": ("standing", "stood", "stand", "upright"),
     "walking": (
         "walking", "walk", "walked", "strolling", "stroll", "on foot",
         "wandering", "wander", "wandered", "ambling", "amble", "roaming", "roam",
@@ -32,14 +31,12 @@ GROUP_PHRASES: dict[str, tuple[str, ...]] = {
         "demanding", "effortful", "workout", "moving around",
     ),
     "wheeled": ("wheeled", "pedal-based", "pedal based", "pedalling", "pedaling", "two-wheeler", "on wheels"),
-    "standing": ("standing", "stood", "stand"),
 }
 
 GROUP_MEMBERS: dict[str, list[str]] = {
     "resting": ["lying_down", "sitting"],
     "active": ["walking", "running", "bicycling"],
     "wheeled": ["bicycling"],
-    "standing": ["standing_in_place", "standing_and_moving"],
 }
 
 VERIFICATION_STARTS = ("is ", "was ", "did ", "has ", "have ", "were ", "does ", "do ")

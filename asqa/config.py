@@ -38,8 +38,7 @@ MIN_OVERLAP_S = WINDOW_SPAN_S
 ACTIVITIES: tuple[str, ...] = (
     "lying_down",
     "sitting",
-    "standing_in_place",
-    "standing_and_moving",
+    "standing",
     "walking",
     "running",
     "bicycling",
@@ -49,15 +48,14 @@ ACTIVITY_INDEX = {name: index for index, name in enumerate(ACTIVITIES)}
 DISPLAY_NAMES = {
     "lying_down": "lying down",
     "sitting": "sitting",
-    "standing_in_place": "standing in place",
-    "standing_and_moving": "standing and moving",
+    "standing": "standing",
     "walking": "walking",
     "running": "running",
     "bicycling": "bicycling",
 }
 
-STATIC_ACTIVITIES = ("lying_down", "sitting", "standing_in_place")
-DYNAMIC_ACTIVITIES = ("standing_and_moving", "walking", "running", "bicycling")
+STATIC_ACTIVITIES = ("lying_down", "sitting", "standing")
+DYNAMIC_ACTIVITIES = ("walking", "running", "bicycling")
 
 LABEL_COLUMNS = {
     "lying_down": "label:LYING_DOWN",
@@ -67,9 +65,6 @@ LABEL_COLUMNS = {
     "running": "label:FIX_running",
     "bicycling": "label:BICYCLING",
 }
-
-PROVENANCE_ANNOTATED = "annotated"
-PROVENANCE_DERIVED = "derived"
 
 
 CHANNEL_NAMES: tuple[str, ...] = (

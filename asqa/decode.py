@@ -211,16 +211,14 @@ def main() -> int:
 
             sequences = []
             for user_id in split["train"]:
-                X, coarse, epoch_ts = matrices(user_id)
-                labels, _ = model.standing_split.apply(X, coarse)
+                X, labels, epoch_ts = matrices(user_id)
                 sequences.append((epoch_ts, labels))
             per_minute = estimate_transitions(sequences)
             transitions = TimeAwareTransitions(per_minute)
 
             collected: dict[str, list[np.ndarray]] = {"truth": [], "window": [], "viterbi": [], "posterior": []}
             for user_id in split["test"]:
-                X, coarse, epoch_ts = matrices(user_id)
-                truth, _ = model.standing_split.apply(X, coarse)
+                X, truth, epoch_ts = matrices(user_id)
                 probabilities = model.predict_proba(X)
                 collected["truth"].append(truth)
                 collected["window"].append(np.asarray(config.ACTIVITIES)[np.argmax(probabilities, axis=1)])

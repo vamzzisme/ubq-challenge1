@@ -9,9 +9,8 @@ from pathlib import Path
 
 import joblib
 import numpy as np
-from sklearn.metrics import classification_report, confusion_matrix, f1_score
+from sklearn.metrics import balanced_accuracy_score, classification_report, confusion_matrix, f1_score
 from scipy.optimize import minimize_scalar
-from sklearn.mixture import GaussianMixture
 from xgboost import XGBClassifier
 
 from asqa import config, context, features as feat
@@ -76,49 +75,6 @@ def load_users(
     return np.vstack(Xs), np.concatenate(ys), np.concatenate(ts), np.concatenate(owners)
 
 
-@dataclass
-class StandingSplit:
-    """Threshold separating standing in place from standing and moving.
-
-    ExtraSensory annotates one `standing` class, but the challenge asks for two.
-    Rather than ask a tree to invent the boundary, it is drawn once on motion
-    energy and applied as a rule, and every window it touches is tagged
-    PROVENANCE_DERIVED so a derived label is never mistaken for an annotated one.
-    """
-
-    threshold: float
-    n_fitted: int
-
-    def apply(self, X: np.ndarray, labels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Expand coarse `standing` into the two challenge classes."""
-        energy = X[:, feat.BODY_RMS_INDEX]
-        out = labels.astype(object).copy()
-        provenance = np.full(len(labels), config.PROVENANCE_ANNOTATED, dtype=object)
-        standing = labels == "standing"
-        out[standing] = np.where(
-            energy[standing] <= self.threshold, "standing_in_place", "standing_and_moving"
-        )
-        provenance[standing] = config.PROVENANCE_DERIVED
-        return out.astype(str), provenance.astype(str)
-
-
-def fit_standing_split(X: np.ndarray, labels: np.ndarray, seed: int = 42) -> StandingSplit:
-    energy = X[labels == "standing", feat.BODY_RMS_INDEX].reshape(-1, 1)
-    if len(energy) < 20:
-        return StandingSplit(threshold=float(np.median(energy)) if len(energy) else 0.0, n_fitted=len(energy))
-
-    # Energy is log-normal rather than normal: still and moving differ by orders
-    # of magnitude, so the two modes only separate cleanly in log space.
-    log_energy = np.log10(energy + 1e-6)
-    # Two Gaussians, one per mode; the threshold is the midpoint between their
-    # means. Fitted on fold 0 this gives 0.01526 g from 15976 standing windows.
-    mixture = GaussianMixture(n_components=2, random_state=seed, n_init=3).fit(log_energy)
-    order = np.argsort(mixture.means_.ravel())
-    low, high = mixture.means_.ravel()[order]
-    threshold = float(10 ** ((low + high) / 2) - 1e-6)
-    return StandingSplit(threshold=threshold, n_fitted=len(energy))
-
-
 def _xgb(n_classes: int, seed: int, depth: int, estimators: int) -> XGBClassifier:
     return XGBClassifier(
         n_estimators=estimators,
@@ -159,12 +115,11 @@ class Recogniser:
     stage2b: XGBClassifier
     static_classes: list[str]
     dynamic_classes: list[str]
-    standing_split: StandingSplit
     temperature: float = 1.0
 
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Return calibrated `P(activity | window)` as (N, 7) in ACTIVITIES order.
+        """Return calibrated `P(activity | window)` as (N, len(ACTIVITIES)) in ACTIVITIES order.
 
         Chain rule over the hierarchy: P(walking) = P(dynamic) x P(walking|dynamic).
         Both stage-2 heads score every row; the stage-1 probability decides how
@@ -193,22 +148,14 @@ class Recogniser:
 
 def train(
     X_train: np.ndarray,
-    y_train_coarse: np.ndarray,
+    y_train: np.ndarray,
     X_val: np.ndarray,
-    y_val_coarse: np.ndarray,
+    y_val: np.ndarray,
     seed: int = 42,
     depth: int = 6,
     estimators: int = 400,
 ) -> Recogniser:
-    """Fit the three nodes plus the derived standing split and calibration.
-
-    Order matters: the standing split must be fitted before the trees, because
-    it is what turns 6 coarse annotations into the 7 classes they are trained on.
-    """
-    standing_split = fit_standing_split(X_train, y_train_coarse, seed)
-    y_train, _ = standing_split.apply(X_train, y_train_coarse)
-    y_val, _ = standing_split.apply(X_val, y_val_coarse)
-
+    """Fit the three nodes, then calibrate on the validation users."""
     # Stage 1 learns one binary question, still vs moving, which is the most
     # reliable distinction in accelerometry. Each stage-2 head then sees only its
     # own half of the data, so it never wastes capacity on the easy split.
@@ -246,7 +193,7 @@ def train(
         verbose=False,
     )
 
-    model = Recogniser(stage1, stage2a, stage2b, static_classes, dynamic_classes, standing_split)
+    model = Recogniser(stage1, stage2a, stage2b, static_classes, dynamic_classes)
     model.temperature = _fit_temperature(model, X_val, y_val)
     return model
 
@@ -292,17 +239,14 @@ def _fit_temperature(model: Recogniser, X_val: np.ndarray, y_val: np.ndarray) ->
     return float(result.x) if result.success else 1.0
 
 
-def evaluate(model: Recogniser, X: np.ndarray, y_coarse: np.ndarray) -> dict:
-    y_true, provenance = model.standing_split.apply(X, y_coarse)
+def evaluate(model: Recogniser, X: np.ndarray, y_true: np.ndarray) -> dict:
     y_pred = model.predict(X)
     present = [a for a in config.ACTIVITIES if a in set(y_true) or a in set(y_pred)]
-    annotated = provenance == config.PROVENANCE_ANNOTATED
     return {
         "accuracy": float((y_pred == y_true).mean()),
         "macro_f1": float(f1_score(y_true, y_pred, labels=present, average="macro", zero_division=0)),
-        # Reported separately so the derived standing split cannot flatter the
-        # headline number: this is accuracy on human-annotated labels alone.
-        "accuracy_annotated_only": float((y_pred[annotated] == y_true[annotated]).mean()),
+        # Mean per-class recall: the metric the paper's confusion matrices report.
+        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
         "report": classification_report(y_true, y_pred, labels=present, output_dict=True, zero_division=0),
         "confusion_matrix": confusion_matrix(y_true, y_pred, labels=list(config.ACTIVITIES)).tolist(),
         "labels": list(config.ACTIVITIES),
@@ -326,7 +270,6 @@ def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) ->
             )
         model = train(X_train, y_train, X_val, y_val, seed=seed)
         result = evaluate(model, X_test, y_test)
-        result["standing_threshold"] = model.standing_split.threshold
         result["temperature"] = model.temperature
         result["n_features"] = int(X_train.shape[1])
         result["n_train"] = len(X_train)
@@ -342,9 +285,8 @@ def run_fold(fold_index: int, folds: dict, seed: int = 42, save: bool = True) ->
     # has none, so this is what Task 1 actually gets: 0.463 against 0.602.
     X_test_plain, y_test_plain, _, _ = load_users(split["test"], with_context=False)
     isolated = context.augment_isolated(X_test_plain)
-    truth, _ = trained["context_aware"].standing_split.apply(isolated, y_test_plain)
     predicted = trained["context_aware"].predict(isolated)
-    metrics["context_aware_on_isolated_windows"] = float((predicted == truth).mean())
+    metrics["context_aware_on_isolated_windows"] = float((predicted == y_test_plain).mean())
     print(
         f"    context_aware on isolated windows: "
         f"{metrics['context_aware_on_isolated_windows']:.3f} "
@@ -393,16 +335,15 @@ def main() -> int:
 
     if len(results) > 1:
         print(f"\n{'='*72}")
-        print(f"{'variant':<16}{'accuracy':>18}{'macro-F1':>18}")
+        print(f"{'variant':<16}{'accuracy':>18}{'balanced acc':>18}{'macro-F1':>18}")
         for variant in ("context_free", "context_aware"):
-            accuracies = [r[variant]["accuracy"] for r in results]
-            f1s = [r[variant]["macro_f1"] for r in results]
-            print(
-                f"{variant:<16}{np.mean(accuracies):>11.3f} +/- {np.std(accuracies):.3f}"
-                f"{np.mean(f1s):>11.3f} +/- {np.std(f1s):.3f}"
-            )
+            cells = ""
+            for key in ("accuracy", "balanced_accuracy", "macro_f1"):
+                scores = [r[variant][key] for r in results]
+                cells += f"{np.mean(scores):>11.3f} +/- {np.std(scores):.3f}"
+            print(f"{variant:<16}{cells}")
         isolated = [r["context_aware_on_isolated_windows"] for r in results]
-        print(f"\ncontext_aware on isolated windows: {np.mean(isolated):.3f} (Task 1 guard)")
+        print(f"\ncontext_aware on isolated windows: {np.mean(isolated):.3f} (no neighbours)")
 
         for variant in ("context_free", "context_aware"):
             per_class: dict[str, list[float]] = {a: [] for a in config.ACTIVITIES}

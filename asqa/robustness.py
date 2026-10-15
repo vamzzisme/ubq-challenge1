@@ -109,8 +109,7 @@ def main() -> int:
     windows_all, ts_all, truth_all = [], [], []
     for user_id in users:
         cache = load_cached(user_id)
-        Xc, coarse, epoch_ts = build_context_features(user_id)
-        truth, _ = pipeline.context_aware.standing_split.apply(Xc, coarse)
+        Xc, truth, epoch_ts = build_context_features(user_id)
         limit = min(args.max_windows, len(cache.windows))
         windows_all.append(cache.windows[:limit])
         ts_all.append(epoch_ts[:limit])

@@ -672,8 +672,7 @@ def main() -> int:
     for fold_index in indices:
         pipeline = Pipeline(fold=fold_index)
         for user_id in folds["splits"][str(fold_index)]["test"]:
-            X, coarse, epoch_ts = build_context_features(user_id)
-            truth, _ = pipeline.context_aware.standing_split.apply(X, coarse)
+            X, truth, epoch_ts = build_context_features(user_id)
             timeline = pipeline.run(user_id)
 
             answers = answer_cases(timeline, truth, epoch_ts, use_slm=args.use_slm)

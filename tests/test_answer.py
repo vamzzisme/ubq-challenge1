@@ -50,8 +50,7 @@ def test_find_time_handles_plural_units() -> None:
 
 
 def test_find_activities_prefers_the_longer_phrase() -> None:
-    assert find_activities("was the user standing in place?") == ["standing_in_place"]
-    assert find_activities("standing and moving") == ["standing_and_moving"]
+    assert find_activities("was the user standing in place?") == ["standing"]
     assert find_activities("was she lying down") == ["lying_down"]
     assert find_activities("cycling or running") == ["bicycling", "running"]
     assert find_activities("running or cycling") == ["running", "bicycling"]

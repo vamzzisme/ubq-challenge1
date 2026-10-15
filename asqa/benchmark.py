@@ -144,8 +144,7 @@ def qa_accuracy(model, users: list[str], reference, transitions, keep=None,
 
     rows = []
     for user_id in users:
-        Xc, coarse, epoch_ts = build_context_features(user_id)
-        truth, _ = reference.standing_split.apply(Xc, coarse)
+        Xc, truth, epoch_ts = build_context_features(user_id)
         # context.augment appends its columns, so the first N_FEATURES are the base.
         base = Xc[:, : feat.N_FEATURES]
         X = Xc if with_context else base

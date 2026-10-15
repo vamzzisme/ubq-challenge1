@@ -22,7 +22,7 @@ CASES = [
     ("was the user having a lie-in?", "lying_down"),
     ("did he do any pedalling?", "bicycling"),
     ("how often did he perch somewhere?", "sitting"),
-    ("was he stationary upright?", "standing_in_place"),
+    ("was he stationary upright?", "standing"),
 ]
 
 
